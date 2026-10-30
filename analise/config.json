@@ -1,0 +1,39 @@
+{
+  "_comentario": "Coordenadas em pixels do vídeo 480x854. Ajuste se gravar outro vídeo.",
+  "fps_amostragem": 4,
+  "fluidos": {
+    "agua": {
+      "nome": "Água",
+      "video": "videos/agua.mp4",
+      "quadro_calibracao_s": 120,
+      "coluna_marcas": [215, 224],
+      "faixa_marcas_y": [200, 560],
+      "marca_superior_cm": 12,
+      "n_marcas": 12,
+      "centro_garrafa_x": 222,
+      "x_leitura_fita": 219,
+      "colunas_borda": [262, 270, 278, 286, 294, 302, 310],
+      "detector": "escuro",
+      "faixa_busca_y": [215, 548]
+    },
+    "oleo": {
+      "nome": "Óleo",
+      "video": "videos/oleo.mp4",
+      "quadro_calibracao_s": 120,
+      "coluna_marcas": [260, 270],
+      "faixa_marcas_y": [200, 560],
+      "marca_superior_cm": 12,
+      "n_marcas": 12,
+      "centro_garrafa_x": 256,
+      "x_leitura_fita": 265,
+      "colunas_borda": [306, 314, 322, 330, 338, 346],
+      "detector": "amarelo",
+      "faixa_busca_y": [200, 540]
+    }
+  },
+  "modelo": {
+    "h_inicial_cm": 10,
+    "h_final_ajuste_cm": 3,
+    "marcas_relatorio_cm": [10, 9, 8, 7, 6, 5, 4, 3, 2, 1]
+  }
+}

@@ -1,0 +1,2196 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lei de Torricelli — Simulador</title>
+<link rel="stylesheet" href="./vendor/fonts/fonts.css">
+<link rel="stylesheet" href="./vendor/katex/katex.min.css">
+<script src="./vendor/katex/katex.min.js"></script>
+<script type="importmap">
+{ "imports": {
+  "three": "./vendor/three/build/three.module.js",
+  "three/addons/": "./vendor/three/addons/"
+} }
+</script>
+<style>
+  :root{
+    --bg:#F3EFE6; --bg2:#E9E4D8; --ink:#1F3D33; --muted:#5E6B64; --hl:#B5523B;
+    --card:#FBF9F4; --card2:#F6F2EA; --border:#E3DDD0;
+    --water:#A8CFC8; --water-ink:#3F8F83; --oil:#D9A93B; --oil-ink:#B07F14;
+    --serif:"Source Serif 4", Georgia, "Times New Roman", serif;
+    --sans:"Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+    --shadow:0 1px 2px rgba(31,61,51,.04), 0 8px 24px rgba(31,61,51,.06);
+    --ease:cubic-bezier(.2,.7,.2,1);
+  }
+  *{box-sizing:border-box}
+  /* 1rem ≈ 16px num projetor 1920×1080; escala junto com a tela */
+  html{font-size:clamp(10px, min(0.84vw, 1.5vh), 22px)}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:var(--sans);overflow:hidden}
+  body{display:grid;grid-template-columns:var(--cols, 70fr 1rem 30fr);padding:1rem;height:100vh}
+
+  /* divisor arrastável entre palco e painel */
+  #splitter{cursor:col-resize;display:flex;align-items:center;justify-content:center;touch-action:none}
+  #splitter span{width:5px;height:3.5rem;border-radius:999px;background:var(--border);transition:background .2s,height .2s}
+  #splitter:hover span, #splitter.drag span{background:var(--ink);height:5rem}
+  body.dragging{cursor:col-resize;user-select:none}
+  body.dragging #view canvas{pointer-events:none}
+
+  /* ---------- palco ---------- */
+  #view{container-type:size;position:relative;border-radius:20px;overflow:hidden;min-height:0;
+    background:linear-gradient(180deg,#F5F1E8 0%,var(--bg2) 100%);border:1px solid var(--border)}
+  #view canvas{display:block;width:100%;height:100%;transition:opacity .25s var(--ease)}
+  #view.fade canvas, #view.fade #labels{opacity:0}
+  #labels{position:absolute;inset:0;pointer-events:none;transition:opacity .25s var(--ease)}
+  .tag3d{position:absolute;left:0;top:0;white-space:nowrap;font-weight:600;font-size:1.05rem;color:var(--ink);
+    padding:.3rem .75rem;border-radius:999px;background:var(--card);border:1px solid var(--border);box-shadow:var(--shadow);
+    font-variant-numeric:tabular-nums;display:flex;align-items:center;gap:.45rem}
+  .dot{width:.75em;height:.75em;border-radius:50%;display:inline-block;flex:none}
+
+  .float{position:absolute;z-index:2}
+  #clock{left:1.2rem;top:1.1rem;font-size:2.3rem;font-weight:700;font-variant-numeric:tabular-nums;color:var(--ink);
+    background:var(--card);border:1px solid var(--border);border-radius:16px;padding:.35rem 1rem;box-shadow:var(--shadow)}
+  #tabs{left:50%;top:1.1rem;transform:translateX(-50%);display:flex;gap:.35rem;padding:.35rem;
+    background:var(--card);border:1px solid var(--border);border-radius:999px;box-shadow:var(--shadow)}
+  .tab{border:0;background:transparent;color:var(--ink);padding:.55rem 1.1rem;border-radius:999px;font:inherit;
+    font-size:1.05rem;font-weight:600;cursor:pointer;white-space:nowrap;transition:background .2s, color .2s}
+  .tab b{opacity:.55;margin-right:.35rem;font-weight:700}
+  .tab:hover{background:var(--card2)}
+  .tab.on{background:var(--ink);color:var(--bg)}
+  .tab.on b{opacity:.75}
+  .tab.wip{color:var(--muted)}
+  .tab.on.wip{color:var(--bg)}
+
+  #controls{left:50%;bottom:1.2rem;transform:translateX(-50%);display:flex;align-items:center;gap:.6rem}
+  .pill{white-space:nowrap;font:inherit;font-weight:600;font-size:1.05rem;border:1px solid var(--border);background:var(--card);color:var(--ink);
+    padding:.6rem 1.15rem;border-radius:999px;cursor:pointer;box-shadow:var(--shadow);transition:transform .12s, background .2s}
+  .pill:hover{background:#fff}
+  .pill:active{transform:scale(.96)}
+  #btnPlay{background:var(--ink);color:var(--bg);border-color:var(--ink);font-size:1.4rem;font-weight:700;
+    padding:.8rem 2rem;min-width:11rem;box-shadow:0 6px 20px rgba(31,61,51,.25)}
+  #btnPlay:hover{background:#2a5345}
+  .seg{display:flex;gap:.15rem;padding:.3rem;background:var(--card);border:1px solid var(--border);border-radius:999px;box-shadow:var(--shadow)}
+  .seg button{white-space:nowrap;font:inherit;font-weight:600;font-size:1rem;border:0;background:transparent;color:var(--muted);
+    padding:.4rem .8rem;border-radius:999px;cursor:pointer;font-variant-numeric:tabular-nums;transition:background .2s,color .2s}
+  .seg button.on{background:var(--ink);color:var(--bg)}
+
+  #question{left:50%;bottom:7.5rem;transform:translateX(-50%);text-align:center;pointer-events:none;
+    background:var(--card);border:1px solid var(--border);border-radius:20px;padding:1rem 2rem;box-shadow:var(--shadow);
+    transition:opacity .3s var(--ease), transform .3s var(--ease)}
+  #question.hide{opacity:0;transform:translateX(-50%) translateY(10px)}
+  .q-big{font-family:var(--serif);font-weight:700;font-size:2.6rem;line-height:1.1}
+  .q-sub{margin-top:.4rem;font-size:1.1rem;color:var(--muted)}
+  kbd{font-family:var(--sans);font-size:.9em;background:var(--card2);border:1px solid var(--border);border-bottom-width:3px;
+    border-radius:6px;padding:0 .4rem;color:var(--ink)}
+
+  #banner{left:50%;bottom:7.5rem;transform:translateX(-50%);display:flex;gap:.7rem;align-items:center;white-space:nowrap;
+    background:var(--card);border:1px solid var(--border);border-radius:18px;padding:.75rem 1.4rem;box-shadow:var(--shadow);
+    font-size:1.3rem;font-weight:600;transition:opacity .3s var(--ease), transform .3s var(--ease)}
+  #banner.hide{opacity:0;transform:translateX(-50%) translateY(14px);pointer-events:none}
+  #banner .ttl{font-family:var(--serif);font-weight:700}
+  #banner .vs{color:var(--muted)}
+  #banner .sm{font-size:.95rem;color:var(--muted);font-weight:500}
+  .w{color:var(--water-ink)} .o{color:var(--oil-ink)}
+
+  #toast{left:50%;top:5.5rem;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:.6rem 1.2rem;border-radius:999px;
+    font-weight:600;font-size:1.05rem;opacity:0;transition:opacity .25s;pointer-events:none}
+  #toast.show{opacity:1}
+  #hint{right:1.2rem;bottom:1.2rem;color:var(--muted);font-size:.95rem}
+  @container (max-width: 72rem){ #deckBtn{top:5.2rem} #deckBar{bottom:4.8rem} }
+  @container (max-width: 52rem){ #deckBtn{top:9rem} }
+  /* palco estreito (painel lateral alargado): abas vão para a direita, dica some */
+  @container (max-width: 72rem){
+    #tabs{left:auto;right:1.2rem;transform:none}
+    #hint{display:none}
+  }
+  @container (max-width: 52rem){
+    #tabs{top:5rem}
+    #bigGraph{top:9rem}
+  }
+
+  /* ---------- painel lateral ---------- */
+  #side{container-type:inline-size;background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);
+    overflow-y:auto;min-height:0;padding:1.5rem 1.5rem 1.3rem;display:flex;flex-direction:column;gap:1.2rem}
+  #side > *{transition:opacity .25s var(--ease)}
+  [hidden]{display:none !important}
+  #sideTabs{align-self:flex-start;box-shadow:none}
+  #sideTabs button{font-size:1.05rem;padding:.4rem 1rem}
+  #sideTabs{flex-wrap:wrap;border-radius:18px}
+
+  /* slides e vídeo no palco */
+  #deck{inset:0;z-index:6;padding:.6rem;background:linear-gradient(180deg,#F5F1E8 0%,var(--bg2) 100%);transition:opacity .25s var(--ease)}
+  #deck.hide{opacity:0;pointer-events:none}
+  /* o slide é escalado (inclusive para cima) até o maior 16:9 que cabe no palco */
+  #deckMedia{container-type:size;width:100%;height:100%;display:flex;align-items:center;justify-content:center}
+  #deckMedia .frame{width:min(100cqw, 100cqh * 16 / 9);aspect-ratio:16/9;overflow:hidden;border-radius:14px;background:#fff;
+    box-shadow:0 2px 6px rgba(31,61,51,.06), 0 18px 50px rgba(31,61,51,.16);animation:stepIn .3s var(--ease)}
+  #deckMedia img, #deckMedia video{display:block;width:100%;height:100%;object-fit:contain;transition:transform .25s var(--ease)}
+  #deckMedia img{cursor:zoom-in}
+  #deckMedia.zoomed img{cursor:zoom-out;transition:none}
+  #deckCap{position:absolute;left:1.2rem;top:1.1rem;color:var(--muted);font-size:1rem;font-weight:600;background:var(--card);
+    border:1px solid var(--border);border-radius:999px;padding:.3rem .9rem;box-shadow:var(--shadow)}
+  #deckBar{position:absolute;left:50%;bottom:1.2rem;transform:translateX(-50%);display:flex;align-items:center;gap:.6rem}
+  #deckCount{color:var(--ink);font-weight:700;min-width:4.5rem;text-align:center;font-variant-numeric:tabular-nums;
+    background:var(--card);border:1px solid var(--border);border-radius:999px;padding:.45rem .8rem;box-shadow:var(--shadow)}
+  #deckBack{position:absolute;right:1.2rem;bottom:1.2rem}
+  #deckBtn{right:1.2rem;top:1.1rem;font-size:.95rem;padding:.45rem .9rem;box-shadow:none}
+  /* layout: palco e painel podem ser ocultados (B / C) */
+  body.only-stage, body.only-panel{grid-template-columns:1fr}
+  body.only-stage #side, body.only-stage #splitter, body.only-panel #view, body.only-panel #splitter{display:none}
+  body.only-panel #side{padding-bottom:4.5rem}
+  #layoutBar{position:fixed;left:1rem;bottom:1rem;z-index:20;display:flex;align-items:center;gap:.4rem;opacity:.6;transition:opacity .25s}
+  #layoutBar:hover{opacity:1}
+  #layoutBar .seg{box-shadow:var(--shadow)}
+  #layoutBar .seg button{font-size:.9rem;padding:.25rem .7rem}
+  #btnFs{font-size:1rem;padding:.35rem .75rem}
+  /* tela cheia: sem margens nem bordas; controles somem com o mouse parado */
+  body.fs{padding:0}
+  body.fs #view, body.fs #side{border-radius:0;border:0}
+  body.fs #deck{padding:0}
+  body.fs #deckMedia .frame{border-radius:0;box-shadow:none}
+  #deckBar, #deckBack, #deckCap{transition:opacity .3s}
+  /* mouse parado (com slide aberto ou em tela cheia): os controles somem e o slide fica limpo */
+  body.idle #deck, body.idle #deck *, body.fs.idle, body.fs.idle *{cursor:none !important}
+  body.idle #deckBar, body.idle #deckBack, body.idle #deckCap, body.idle #layoutBar{opacity:0;pointer-events:none}
+  .thumbs{display:grid;grid-template-columns:repeat(auto-fill, minmax(13rem, 1fr));gap:.8rem}
+  .thumb{font:inherit;text-align:left;background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:.5rem;
+    cursor:pointer;color:var(--ink);transition:transform .15s, box-shadow .15s}
+  .thumb:hover{transform:translateY(-2px);box-shadow:var(--shadow)}
+  .thumb.on{box-shadow:0 0 0 2px var(--ink)}
+  .thumb img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:8px;background:#fff;box-shadow:0 1px 4px rgba(31,61,51,.12)}
+  .thumb .tn{display:block;margin-top:.45rem;font-size:.9rem;color:var(--muted);font-weight:600}
+  .thumb .tt{display:block;font-size:1.05rem;font-weight:600;line-height:1.25}
+  .vidCap{font-family:var(--serif);font-size:clamp(1.2rem, 3.3cqi, 1.9rem);line-height:1.45;margin:0}
+  .pane{display:flex;flex-direction:column;gap:1.2rem;flex:1}
+  #paneSim.wip > section{display:none}
+  .simWip, .wipTxt{color:var(--muted);font-size:1.2rem}
+  .simWip{display:none}
+  #paneSim.wip .simWip{display:block}
+
+  /* enunciado */
+  .enun{font-weight:400;font-family:var(--serif);font-size:clamp(1.25rem, 3.4cqi, 2rem);line-height:1.55;color:var(--ink)}
+  .enun p{margin:0 0 .8em}
+  .enun b{font-weight:700}
+  .enun .katex{font-size:1.04em}
+  .enun .katex-display{margin:.5em 0}
+  .enun .lei{font-size:.85em;color:var(--muted);background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:.6rem .9rem}
+  .nota{font-size:clamp(1.1rem, 3cqi, 1.7rem);font-weight:600;color:var(--ink);background:var(--card2);
+    border:1px solid var(--border);border-left:5px solid var(--ink);border-radius:12px;padding:.8rem 1rem}
+
+  /* apresentação: passos */
+  #steps{display:flex;flex-direction:column;gap:.8rem}
+  .step{background:var(--card2);border:1px solid var(--border);border-radius:14px;padding:.9rem 1.1rem}
+  .step.in{animation:stepIn .3s var(--ease)}
+  @keyframes stepIn{from{opacity:0;transform:translateY(10px)}}
+  .step .sn{font-size:.9rem;font-weight:600;color:var(--muted);letter-spacing:.03em}
+  .step h4{font-family:var(--serif);font-weight:700;font-size:clamp(1.3rem, 3.6cqi, 2.1rem);margin:.1rem 0 .3rem}
+  .step .tx{font-size:clamp(1.3rem, 4cqi, 2.6rem);white-space:nowrap;overflow:hidden;padding:.15rem 0}
+  .step p{margin:.35rem 0 0;font-size:clamp(1.05rem, 2.9cqi, 1.6rem);color:var(--muted);line-height:1.4}
+  .step.result{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+  .step.result .sn, .step.result p{color:#d9e3dc}
+  .step.result p{font-weight:600}
+  .stepNav{display:flex;align-items:center;gap:.6rem;margin-top:auto;padding-top:.4rem}
+  .stepNav .count{margin:0 auto;color:var(--muted);font-weight:600;font-variant-numeric:tabular-nums}
+  .pill.dark{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+  .pill:disabled{opacity:.4;cursor:default}
+
+  /* cena em construção */
+  #wipCard{left:50%;top:50%;transform:translate(-50%,-50%);text-align:center;display:none;pointer-events:none;
+    background:var(--card);border:1px solid var(--border);border-radius:20px;padding:1.2rem 2.2rem;box-shadow:var(--shadow)}
+  #wipCard .q-big{font-size:2.4rem}
+  #view.wip #wipCard{display:block}
+  #view.wip #controls, #view.wip #question, #view.wip #banner{display:none}
+  /* cena estática (sem esvaziamento): controles próprios no lugar de play/velocidade */
+  #view.static #controls, #view.static #clock, #view.static #banner{display:none}
+  #sceneCtl{left:50%;bottom:1.2rem;transform:translateX(-50%);display:flex;align-items:center;gap:.6rem}
+  .pill.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+  /* controles da cena na lateral do palco (esfera: Pitágoras e h manual) */
+  #sceneCtl.side{left:1.2rem;bottom:auto;top:50%;transform:translateY(-50%);flex-direction:column;align-items:stretch;width:15rem}
+  .ctlCard{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:.7rem .9rem .8rem;box-shadow:var(--shadow)}
+  .ctlCard label{display:flex;justify-content:space-between;font-size:1rem;color:var(--muted);font-weight:600;margin-bottom:.5rem}
+  .ctlCard output{color:var(--ink);font-variant-numeric:tabular-nums;font-weight:700}
+  .ctlCard .exNote{display:block;font-size:.85rem;color:var(--hl);margin-top:.5rem;opacity:0;transition:opacity .2s}
+  .ctlCard .exNote.on{opacity:1}
+  .tag3d.py{background:transparent;border-color:transparent;box-shadow:none;color:var(--ink);font-size:1.15rem;transition:opacity .2s;
+    text-shadow:0 0 4px #fff,0 0 8px #fff}
+  .tag3d.py.eq{background:var(--card);border-color:var(--hl);color:var(--hl);text-shadow:none}
+  .step .snote{font-size:.85rem;font-style:italic;margin-top:.2rem}
+  #side.fade > *{opacity:0}
+  .sec-label{font-size:.95rem;font-weight:600;color:var(--muted);letter-spacing:.02em;margin:0 0 .5rem;display:flex;align-items:center;gap:.6rem}
+  h1{font-family:var(--serif);font-weight:700;font-size:clamp(1.85rem, 5.4cqi, 3.2rem);line-height:1.15;margin:0}
+  .goal{margin:.4rem 0 0;color:var(--muted);font-size:clamp(1.15rem, 3cqi, 1.8rem)}
+
+  /* o texto cresce junto com a largura do painel */
+  #formulaLines .ln{white-space:nowrap;overflow:hidden;font-size:clamp(1.55rem, 4.6cqi, 3.2rem);padding:.12rem 0;color:var(--ink)}
+  #formulaLines .ln.main{padding-bottom:.6rem;margin-bottom:.35rem;border-bottom:1px solid var(--border)}
+  #formulaLines .head{display:flex;align-items:center;gap:.45rem;font-weight:700;font-size:1.05rem;margin-top:.5rem}
+  .katex{font-size:1em}
+
+  #cards{display:grid;grid-template-columns:1fr 1fr;gap:.6rem}
+  .mc{background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:.6rem .8rem;min-width:0}
+  .mc .lab{font-size:.95rem;color:var(--muted);font-weight:600;display:flex;align-items:center;justify-content:space-between;gap:.4rem}
+  .seg.tiny{box-shadow:none;padding:.12rem}
+  .seg.tiny button{font-size:.8rem;padding:.08rem .5rem}
+  .graphCap{display:none;margin:0 0 .5rem}
+  .graphCap.on{display:block}
+  .graphCap .ct{font-family:var(--serif);font-weight:700;font-size:clamp(1.25rem, 3.6cqi, 2.1rem);color:var(--ink);line-height:1.2}
+  .graphCap .cf{font-size:clamp(1.15rem, 3.2cqi, 1.9rem);color:var(--muted);margin-top:.15rem}
+  .mc .row{display:flex;align-items:baseline;gap:.4rem;font-size:clamp(1.4rem, 3.9cqi, 2.6rem);font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .mc .row .u{font-size:.95rem;color:var(--muted);font-weight:500}
+  .mc .row .dot{align-self:center}
+  .mc.wide{grid-column:1 / -1}
+  /* rótulos do triângulo: deslocados em relação ao ponto de ancoragem */
+  .tag3d.py.l{translate:calc(-50% - .5rem) 50%}
+  .tag3d.py.r{translate:calc(50% + .5rem) 50%}
+  .tag3d.py.dn{translate:0 calc(100% + .6rem)}
+  .tag3d.py.r.dn{translate:calc(50% + .5rem) calc(100% + .3rem)}
+  .tag3d.py.r.up{translate:calc(50% + .5rem) -.3rem}
+
+  #graphBox{display:flex;flex-direction:column;flex:1;min-height:clamp(24rem, 78cqi, 48rem)}
+  #graphBox .sec-label{flex-wrap:wrap}
+
+  /* comparação de k */
+  .kgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:.6rem}
+  .kc{font:inherit;text-align:left;background:var(--card2);border:1px solid var(--border);border-left:5px solid var(--c);
+    border-radius:12px;padding:.55rem .8rem;color:var(--ink);cursor:pointer;min-width:0;
+    transition:background .2s, box-shadow .2s, transform .2s}
+  .kc.book{cursor:default}
+  .kc .kn{display:block;font-size:.95rem;color:var(--muted);font-weight:600}
+  .kc .kv{display:block;font-size:clamp(1.4rem, 3.9cqi, 2.6rem);font-weight:700;color:var(--c);font-variant-numeric:tabular-nums}
+  .kc.sel{background:#fff;box-shadow:0 0 0 2px var(--c), var(--shadow);transform:translateY(-2px)}
+  .knote{margin:.6rem 0 0;font-size:clamp(1rem, 2.7cqi, 1.6rem);color:var(--muted);line-height:1.35}
+  .knote b{color:var(--ink)}
+  .tag3d.sel{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+  .tag3d.note{color:var(--hl);border-color:var(--hl);transition:opacity .2s}
+  .tag3d.good{color:#2E7D4F;border-color:#2E7D4F}
+  .tag3d.bad{color:var(--hl);border-color:var(--hl)}
+  .tag3d.hot{background:var(--hl);color:var(--bg);border-color:var(--hl)}
+  #sliders .pill{align-self:flex-start;box-shadow:none}
+  .sec-label.tg{cursor:pointer;user-select:none}
+  .sec-label.tg::before{content:"▾";display:inline-block;transition:transform .2s;font-size:.9em}
+  section.collapsed .sec-label.tg::before{transform:rotate(-90deg)}
+  section.collapsed > :not(.sec-label){display:none}
+  .mini{font:inherit;font-size:.95rem;font-weight:600;color:var(--ink);background:var(--card2);border:1px solid var(--border);
+    border-radius:999px;padding:.25rem .75rem;cursor:pointer}
+  .mini:hover{background:#fff}
+
+  /* gráfico ampliado sobre o palco */
+  #bigGraph{left:1.2rem;right:1.2rem;top:5.2rem;bottom:6.2rem;display:flex;flex-direction:column;gap:.6rem;
+    background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:0 12px 40px rgba(31,61,51,.12);
+    padding:1rem 1.2rem;transition:opacity .25s var(--ease), transform .25s var(--ease)}
+  #bigGraph.hide{opacity:0;transform:scale(.97);pointer-events:none}
+  #bigGraph .bg-head{display:flex;align-items:center;gap:.8rem}
+  #bigGraph .bg-head .ttl{font-family:var(--serif);font-weight:700;font-size:1.6rem}
+  #bigGraph .seg.small{margin-left:auto}
+  #bigWrap{position:relative;flex:1;background:#fff;border:1px solid var(--border);border-radius:12px}
+  #graphBig{position:absolute;inset:0;width:100%;height:100%}
+  #graphWrap{position:relative;flex:1;min-height:15rem;background:#fff;border:1px solid var(--border);border-radius:12px}
+  #graph{position:absolute;inset:0;width:100%;height:100%}
+  .seg.small{margin-left:auto;box-shadow:none;padding:.2rem}
+  .seg.small button{font-size:.95rem;padding:.25rem .7rem}
+
+  #sliders{display:flex;flex-direction:column;gap:.8rem}
+  .sl label{display:flex;justify-content:space-between;font-size:1rem;color:var(--muted);font-weight:600;margin-bottom:.3rem}
+  .sl label output{color:var(--ink);font-variant-numeric:tabular-nums;font-weight:700}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:6px;border-radius:999px;outline:none;
+    background:linear-gradient(90deg,var(--ink) var(--p,50%),var(--border) var(--p,50%))}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:var(--card);
+    border:2px solid var(--ink);cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.15)}
+  input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:var(--card);border:2px solid var(--ink)}
+
+  @media (max-width: 900px), (max-aspect-ratio: 1/1){
+    html,body{overflow:auto} body{grid-template-columns:1fr;height:auto}
+    #view{height:70vh} html{font-size:12px} #splitter{display:none}
+    body.only-stage #view{height:calc(100vh - 2rem)}
+  }
+</style>
+</head>
+<body>
+<section id="view">
+  <div id="labels"></div>
+  <div id="clock" class="float">t = 00,0 s</div>
+  <nav id="tabs" class="float"></nav>
+  <div id="question" class="float hide"><div class="q-big">Quem esvazia primeiro?</div>
+    <div class="q-sub"><span class="w">● Água</span> × <span class="o">● Óleo</span> — aperte <kbd>espaço</kbd></div></div>
+  <div id="banner" class="float hide"></div>
+  <div id="sceneCtl" class="float" hidden></div>
+  <div id="controls" class="float">
+    <button class="pill" id="btnReset" title="Reset (R)">↺ Reset</button>
+    <button class="pill" id="btnPlay">▶ Iniciar</button>
+    <div class="seg" id="speeds"></div>
+  </div>
+  <div id="bigGraph" class="float hide">
+    <div class="bg-head"><span class="ttl" id="graphNameBig">Gráfico h × t</span>
+      <div class="seg small graphStage"><button data-s="1" class="on">1 Modelos</button><button data-s="2">2 Modelos × medições</button><button data-s="3">3 Taxa dh/dt</button></div>
+      <button class="mini" id="btnBigClose" title="Fechar (G ou Esc)">✕ Fechar</button></div>
+    <div class="graphCap"></div>
+    <div id="bigWrap"><canvas id="graphBig"></canvas></div>
+  </div>
+  <div id="wipCard" class="float"><div class="q-big">Em construção</div><div class="q-sub">Esta cena ainda vai ser montada.</div></div>
+  <div id="hint" class="float"><kbd>0</kbd>–<kbd>4</kbd> cenas · <kbd>espaço</kbd> · <kbd>R</kbd> · <kbd>G</kbd> gráfico · <kbd>←</kbd><kbd>→</kbd> gráficos · <kbd>S</kbd><kbd>E</kbd><kbd>A</kbd><kbd>D</kbd> abas · <kbd>↑</kbd><kbd>↓</kbd> passos · <kbd>P</kbd> painel · <kbd>B</kbd><kbd>C</kbd> ocultar · <kbd>F</kbd> tela cheia</div>
+  <div id="toast" class="float"></div>
+  <button class="float pill" id="deckBtn" title="Todos os slides em sequência">▤ Apresentação completa</button>
+  <div id="deck" class="float hide">
+    <div id="deckMedia"></div>
+    <div id="deckCap"></div>
+    <div id="deckBar">
+      <button class="pill" id="deckPrev" title="Anterior (←)">←</button>
+      <span id="deckCount"></span>
+      <button class="pill" id="deckNext" title="Próximo (→)">→</button>
+      <button class="pill" id="deckOpen">Abrir simulação desta questão</button>
+      <button class="pill" id="deckFull" title="Tela cheia (F)">⛶ Tela cheia</button>
+    </div>
+    <button class="pill dark" id="deckBack" title="Esc">← Voltar à simulação</button>
+  </div>
+</section>
+
+<div id="splitter" title="Arraste para redimensionar · duplo clique alterna 70/30 ↔ 50/50 (P)"><span></span></div>
+
+<aside id="side">
+  <div class="seg" id="sideTabs"><button data-t="sim" class="on">Simulação</button><button data-t="enun">Enunciado</button><button data-t="apre">Apresentação</button><button data-t="slides">Slides</button><button data-t="video" hidden>Vídeo</button></div>
+  <header><h1 id="sceneTitle"></h1><p class="goal" id="sceneGoal"></p></header>
+  <div class="pane" id="paneSim">
+  <p class="simWip">Simulação em construção.</p>
+  <section data-sec="modelo"><div class="sec-label tg">Modelo</div><div id="formulaLines"></div></section>
+  <section data-sec="comparacao" id="kSec"><div class="sec-label tg">Comparação de k</div><div id="kCompare"></div></section>
+  <section data-sec="leituras"><div class="sec-label tg">Leituras</div><div id="cards"></div></section>
+  <section id="graphBox">
+    <div class="sec-label"><span id="graphName">Gráfico h × t</span>
+      <div class="seg small graphStage"><button data-s="1" class="on">1 Modelos</button><button data-s="2">2 Modelos × medições</button><button data-s="3">3 Taxa dh/dt</button></div>
+      <button class="mini" id="btnBig" title="Ampliar sobre o palco (G)">⤢ Ampliar</button>
+    </div>
+    <div class="graphCap"></div>
+    <div id="graphWrap"><canvas id="graph"></canvas></div>
+  </section>
+  <section data-sec="parametros"><div class="sec-label tg">Parâmetros</div><div id="sliders"></div></section>
+  </div>
+  <div class="pane" id="paneEnun" hidden></div>
+  <div class="pane" id="paneSlides" hidden></div>
+  <div class="pane" id="paneVideo" hidden></div>
+  <div class="pane" id="paneApre" hidden>
+    <div id="steps"></div>
+    <div class="stepNav">
+      <button class="pill" id="btnPrev" title="Voltar (↑)">↑ Voltar</button>
+      <span class="count" id="stepCount"></span>
+      <button class="pill dark" id="btnNext" title="Próximo passo (↓)">Próximo passo ↓</button>
+    </div>
+  </div>
+</aside>
+
+<div id="layoutBar">
+  <div class="seg" id="layoutSeg"><button data-l="both" title="Palco e painel">Ambos</button><button data-l="stage" title="Só o palco (B)">Palco</button><button data-l="panel" title="Só o painel (C)">Painel</button></div>
+  <button class="pill" id="btnFs" title="Tela cheia (F)">⛶</button>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+// enunciado e apresentação de cada questão (editáveis em scenes/qN.js)
+import SLIDES from './slides.config.js';
+import q0 from './scenes/q0.js';
+import q1 from './scenes/q1.js';
+import q2 from './scenes/q2.js';
+import q3 from './scenes/q3.js';
+import q4 from './scenes/q4.js';
+// física (funções puras, testadas em tests/physics.test.js)
+import { outflowSpeed, volumeRate } from './src/physics/torricelli.js';
+import * as models from './src/physics/models.js';
+import * as analytic from './src/physics/analytic.js';
+import * as sim from './src/physics/simulations.js';
+import { timeline, advanceRun } from './src/physics/playback.js';
+
+// ---------- tema ----------
+const C = { ink: '#1F3D33', muted: '#5E6B64', hl: '#B5523B', card: '#FBF9F4', border: '#E3DDD0', grid: '#ECE7DC',
+  water: '#A8CFC8', waterInk: '#3F8F83', oil: '#D9A93B', oilInk: '#B07F14', cream: '#EFE8D8', table: '#E4DAC4' };
+
+// ---------- utilidades ----------
+const $ = s => document.querySelector(s);
+const fmt = (x, d = 1) => Number.isFinite(x)
+  ? (Math.abs(x) < 0.5 * 10 ** -d ? 0 : x).toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d }) : '—';
+// número formatado para LaTeX: vírgula decimal e espaço fino nos milhares
+const tx = (x, d = 1) => fmt(x, d).replace(/\./g, '§').replace(/,/g, '{,}').replace(/§/g, '\\,');
+const HL = s => `\\textcolor{${C.hl}}{${s}}`;
+// duração legível: "2 min 22 s"; acima de 1 h, "3 h 16 min 46 s"
+function durParts(sec) {
+  if (!Number.isFinite(sec)) return [['—', '']];
+  if (sec >= 3600) { const s = Math.round(sec); return [[Math.floor(s / 3600), 'h'], [Math.floor(s / 60) % 60, 'min'], [s % 60, 's']]; }
+  const s = Math.round(sec), m = Math.floor(s / 60);
+  return m ? [[m, 'min'], [s % 60, 's']] : [[s, 's']];
+}
+const fmtDur = sec => durParts(sec).map(p => p.join(' ')).join(' ');
+const fmtClock = t => (t < 10 ? '0' : '') + fmt(t, 1);
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast.id); toast.id = setTimeout(() => t.classList.remove('show'), 1800); }
+
+// ---------- three.js base ----------
+const view = $('#view');
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+view.prepend(renderer.domElement);
+
+const scene3 = new THREE.Scene();
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene3.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+scene3.add(new THREE.HemisphereLight(0xfffaf0, 0xd9cfba, 1.1));
+const sun = new THREE.DirectionalLight(0xfff6e8, 1.6);
+sun.position.set(25, 60, 35); sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048); sun.shadow.radius = 6; sun.shadow.bias = -0.0008; sun.shadow.normalBias = 0.25;
+Object.assign(sun.shadow.camera, { left: -45, right: 45, top: 45, bottom: -45, near: 20, far: 140 });
+scene3.add(sun);
+
+// near alto o bastante para não haver z-fighting (a câmera nunca chega a menos de 85 unidades)
+const camera = new THREE.PerspectiveCamera(36, 1, 5, 1000);
+const controls = new OrbitControls(camera, renderer.domElement);
+Object.assign(controls, { enableDamping: true, enablePan: false, minDistance: 85, maxDistance: 175,
+  minPolarAngle: 0.25, maxPolarAngle: 1.32 });
+
+let world = new THREE.Group(); scene3.add(world);
+
+function resize() {
+  const w = view.clientWidth, h = view.clientHeight;
+  if (!w || !h) return;   // palco oculto
+  renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(view);
+
+function disposeWorld() {
+  world.traverse(o => {
+    o.geometry?.dispose();
+    const ms = Array.isArray(o.material) ? o.material : (o.material ? [o.material] : []);
+    ms.forEach(m => { m.map?.dispose(); m.dispose(); });
+  });
+  scene3.remove(world); world = new THREE.Group(); scene3.add(world);
+  $('#labels').innerHTML = '';
+}
+
+// textura redonda para partículas
+const dotTex = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
+  const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.5, 'rgba(255,255,255,.85)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c);
+})();
+
+// ilha creme arredondada (estilo Swift Playgrounds) + sombra no chão
+function makeIsland(radius, thick, y) {
+  const c = Math.min(1.6, thick / 2), pts = [new THREE.Vector2(0, 0)];
+  for (let i = 0; i <= 8; i++) { const a = Math.PI / 2 * i / 8; pts.push(new THREE.Vector2(radius - c + c * Math.sin(a), -c + c * Math.cos(a))); }
+  for (let i = 0; i <= 8; i++) { const a = Math.PI / 2 * i / 8; pts.push(new THREE.Vector2(radius - c + c * Math.cos(a), -thick + c - c * Math.sin(a))); }
+  pts.push(new THREE.Vector2(0, -thick));
+  const g = new THREE.Group();
+  const isl = new THREE.Mesh(new THREE.LatheGeometry(pts, 128),
+    new THREE.MeshStandardMaterial({ color: C.cream, roughness: 0.85, envMapIntensity: 0.35 }));
+  isl.position.y = y; isl.receiveShadow = true; g.add(isl);
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(600, 600), new THREE.ShadowMaterial({ opacity: 0.10 }));
+  ground.rotation.x = -Math.PI / 2; ground.position.y = y - thick - 0.5; ground.receiveShadow = true; g.add(ground);
+  return g;
+}
+
+// régua em cm (textura de canvas)
+function makeRuler(yMin, yMax, width, unitLabel = 'cm', step = 1, sub = 10, ppu = 128) {
+  const W = Math.round(width * ppu), H = Math.round((yMax - yMin) * ppu);
+  const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d');
+  g.fillStyle = C.card; g.beginPath(); g.roundRect(0, 0, W, H, 36); g.fill();
+  g.strokeStyle = C.border; g.lineWidth = 6; g.stroke();
+  g.strokeStyle = C.ink; g.fillStyle = C.ink;
+  const n0 = Math.ceil(yMin / step * sub), n1 = Math.floor(yMax / step * sub);
+  for (let i = n0; i <= n1; i++) {
+    const v = i * step / sub, y = (yMax - v) * ppu;
+    const major = i % sub === 0, half = i % (sub / 2) === 0;
+    const len = major ? W * 0.27 : half ? W * 0.17 : W * 0.09;
+    g.lineWidth = major ? 7 : half ? 4 : 2.5;
+    g.beginPath(); g.moveTo(0, y); g.lineTo(len, y); g.moveTo(W, y); g.lineTo(W - len, y); g.stroke();
+    if (major) {
+      g.font = `700 ${Math.round(W * 0.147)}px Inter, system-ui, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillStyle = Math.abs(v) < 1e-9 ? C.hl : C.ink; g.fillText(fmt(v, Number.isInteger(+v.toFixed(6)) ? 0 : 1), W / 2, y); g.fillStyle = C.ink;
+    }
+  }
+  g.font = `600 ${Math.round(W * 0.086)}px Inter, system-ui, sans-serif`; g.textAlign = 'center';
+  g.fillText(unitLabel, W / 2, W * 0.083);
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(width, yMax - yMin),
+    new THREE.MeshStandardMaterial({ map: tex, roughness: 0.7, alphaTest: 0.5, envMapIntensity: 0.3 }));
+  m.position.y = (yMin + yMax) / 2; m.castShadow = true;
+  return m;
+}
+
+// jato de partículas (parábola física em tempo real)
+class Jet {
+  constructor(color, dir, origin, { g = 981, floorY = -11, N = 3000, size = 1.15, spread = 0.35 } = {}) {
+    Object.assign(this, { origin, g, floorY, N, spread, acc: 0, next: 0 });
+    this.d = typeof dir === 'number' ? new THREE.Vector3(dir, 0, 0) : dir.clone().normalize();
+    this.pos = new Float32Array(N * 3).fill(-9999); this.vel = new Float32Array(N * 3); this.alive = new Uint8Array(N);
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(this.pos, 3));
+    this.points = new THREE.Points(geo, new THREE.PointsMaterial({
+      color, size, map: dotTex, transparent: true, depthWrite: false, opacity: 0.95 }));
+    this.points.frustumCulled = false; this.points.renderOrder = 5;
+  }
+  clear() { this.pos.fill(-9999); this.alive.fill(0); this.points.geometry.attributes.position.needsUpdate = true; }
+  update(dt, v, rate) {
+    if (dt <= 0) return;
+    const { pos, vel, alive, N, g } = this;
+    if (v > 0.5) {
+      this.acc += rate * dt;
+      while (this.acc >= 1) {
+        this.acc -= 1; const i = this.next; this.next = (this.next + 1) % N;
+        const s = this.spread, r = Math.random() * dt; // espalha o nascimento no frame
+        const f = 1 + (Math.random() - .5) * 0.04;
+        for (let a = 0; a < 3; a++) {   // velocidade na direção do jato + leve espalhamento perpendicular
+          const da = this.d.getComponent(a), perp = Math.abs(da) < 0.5;
+          pos[3 * i + a] = this.origin.getComponent(a) + da * 0.05 + (perp ? (Math.random() - .5) * s : 0);
+          vel[3 * i + a] = da * v * f + (perp ? (Math.random() - .5) * v * 0.02 : 0);
+        }
+        pos[3 * i] += vel[3 * i] * r; pos[3 * i + 1] += vel[3 * i + 1] * r - 0.5 * g * r * r; vel[3 * i + 1] -= g * r;
+        alive[i] = 1;
+      }
+    } else this.acc = 0;
+    for (let i = 0; i < N; i++) {
+      if (!alive[i]) continue;
+      vel[3 * i + 1] -= g * dt;
+      pos[3 * i] += vel[3 * i] * dt; pos[3 * i + 1] += vel[3 * i + 1] * dt; pos[3 * i + 2] += vel[3 * i + 2] * dt;
+      if (pos[3 * i + 1] < this.floorY) { alive[i] = 0; pos[3 * i + 1] = -9999; }
+    }
+    this.points.geometry.attributes.position.needsUpdate = true;
+  }
+}
+
+function makeLabel() {
+  const el = document.createElement('div'); el.className = 'tag3d'; $('#labels').appendChild(el); return el;
+}
+const dotHtml = tk => `<span class="dot" style="background:${tk.color};box-shadow:inset 0 0 0 2px ${tk.ink}"></span>`;
+
+// ---------- CENA 1: água × óleo ----------
+// legenda em caixa no canto superior direito do gráfico
+function drawLegend(g, rows, { fs, W, Rp, Tp }) {
+  g.font = `600 ${fs}px Inter, system-ui, sans-serif`;
+  const sw = fs * 2.2, lh = fs * 1.55, txt = r => r.k != null ? `${r.name}   k = ${fmt(r.k, 4)}` : r.name;
+  const bw = Math.max(...rows.map(r => g.measureText(txt(r)).width)) + sw + fs * 1.6, bh = rows.length * lh + fs * 0.6;
+  const bx = W - Rp - bw - 6, by = Tp + 6;
+  g.fillStyle = 'rgba(255,255,255,.94)'; g.strokeStyle = C.border; g.lineWidth = 1;
+  g.beginPath(); g.roundRect(bx, by, bw, bh, 10); g.fill(); g.stroke();
+  rows.forEach((r, i) => {
+    const y = by + fs * 0.3 + lh * (i + 0.5), x = bx + fs * 0.6;
+    g.save();
+    if (r.circle) { g.beginPath(); g.arc(x + sw / 2, y, fs * 0.38, 0, 7); g.strokeStyle = C.muted; g.lineWidth = 2; g.stroke(); }
+    else { g.globalAlpha = r.a; g.strokeStyle = r.c; g.lineWidth = Math.max(2.5, fs * 0.2); g.lineCap = 'round'; g.setLineDash(r.dash);
+      g.beginPath(); g.moveTo(x, y); g.lineTo(x + sw, y); g.stroke(); }
+    g.restore();
+    g.fillStyle = r.circle ? C.muted : r.c; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText(txt(r), x + sw + fs * 0.6, y);
+  });
+}
+
+const D1 = 9.39, R1 = D1 / 2, AREA1 = Math.PI * R1 * R1;
+// livro (questão 2a): √h = √10 + (k/2)·t passando por h(68) = 3  ⇒  k = 2(√3 − √10)/68
+const K_BOOK = analytic.q2.K_BOOK;
+const INK1 = { book: '#173D33', water: '#3E8E84', oil: '#C98A1A' };
+const garrafa = {
+  key: '2', tab: 'Garrafa', title: 'Questão 2 — Garrafa: água × óleo', goal: 'Quem esvazia primeiro: água ou óleo?', intro: true,
+  content: q2,
+  hUnit: 'cm',
+  params: [
+    { key: 'h0', label: 'Altura inicial h₀', unit: 'cm', min: 3, max: 14, step: 0.5, value: 10, d: 1 },
+    { key: 'kA', label: 'k da água', unit: 'cm½/s', min: -0.08, max: -0.01, step: 0.0001, value: -0.0444, d: 4 },
+    { key: 'kO', label: 'k do óleo', unit: 'cm½/s', min: -0.08, max: -0.01, step: 0.0001, value: -0.0370, d: 4 },
+  ],
+  marks: [3],
+  makeTanks(p) {
+    const mk = (name, cls, color, ink, k) => ({ name, cls, color, ink, k, ...sim.q2(k, p.h0),
+      flow: h => -AREA1 * models.q2(k)(h) });                           // cm³/s = mL/s
+    return [mk('Água', 'w', C.water, INK1.water, p.kA), mk('Óleo', 'o', C.oil, INK1.oil, p.kO)];
+  },
+  cards: [
+    { label: 'h atual', unit: 'cm', val: tk => fmt(Math.max(tk.h, 0), 2) },
+    { label: 'Vazão', unit: 'mL/s', val: tk => fmt(tk.flow(tk.h), 2) },
+    { label: 'Esvazia em', duration: true, secs: tk => tk.tl.tEmpty,
+      mark: tk => tk.emptyAt != null ? ' ✓' : '' },
+    { label: 'Constante k', unit: 'cm½/s', val: tk => fmt(tk.k, 4) },
+  ],
+  measured: (() => {
+    const marks = [10, 9, 8, 7, 6, 5, 4, 3, 2];
+    const ag = [0, 7.5, 15.3, 23.5, 32.3, 41.9, 52.3, 64.4, 78.7];
+    const ol = [0, 8.6, 18.0, 27.9, 38.5, 49.9, 62.4, 77.4, 95.2];
+    return [marks.map((m, i) => [ag[i], m]), marks.map((m, i) => [ol[i], m])];
+  })(),
+  // câmera ~25° acima da horizontal
+  camera: { dist: 128, elev: 25, target: [0, -2, 0] },
+  stages: 3,
+  stageName: n => n === 3 ? 'Taxa de variação dh/dt × h' : 'Gráfico h × t',
+  caption: n => n === 3 ? { title: 'Quanto mais alto o nível, mais rápido ele cai', tex: '\\dfrac{dh}{dt} = k\\sqrt{h}' } : null,
+  // etapa 3: cheio (h = 10) à direita e vazio à esquerda, então o ponto anda para a esquerda ao esvaziar
+  axes: n => n === 3
+    ? { x: { from: 0, to: 10, step: 1 }, y: { from: -1.6, to: 0, step: 0.2 }, xLabel: 'h (cm)', yLabel: 'dh/dt (mm/s)' }
+    : { x: { from: 0, to: 175, step: 25 }, y: { from: 0, to: 10.5, step: 2 }, xLabel: 't (s)', yLabel: 'h (cm)' },
+
+  // etapa 3: dh/dt = k√h (em mm/s) em função de h, com a posição atual de cada tanque
+  plotRate(g, { px, py, fs, W, Rp, Tp }) {
+    const [ag, ol] = st.tanks, dotted = [0.1, fs * 0.45];
+    const curve = (k, color, dash) => {
+      g.save(); g.strokeStyle = color; g.lineWidth = Math.max(2.5, fs * 0.2); g.setLineDash(dash);
+      g.lineCap = 'round'; g.lineJoin = 'round'; g.beginPath();
+      for (let i = 0; i <= 200; i++) { const h = 10 * i / 200, r = 10 * k * Math.sqrt(h); i ? g.lineTo(px(h), py(r)) : g.moveTo(px(h), py(r)); }
+      g.stroke(); g.restore();
+    };
+    curve(ag.k, INK1.water, []); curve(ol.k, INK1.oil, []); curve(K_BOOK, INK1.book, dotted);
+    g.font = `700 ${fs}px Inter, system-ui, sans-serif`;
+    st.tanks.forEach((tk, i) => {
+      const h = Math.max(tk.h, 0), r = 10 * tk.f(h), x = px(h), y = py(r);
+      g.beginPath(); g.arc(x, y, fs * 0.42, 0, 7); g.fillStyle = tk.color; g.fill();
+      g.lineWidth = 2.5; g.strokeStyle = tk.ink; g.stroke();
+      // rótulo: água abaixo da curva, óleo acima; à esquerda do ponto, ou à direita perto do eixo
+      const txt = `${fmt(r, 2).replace('-', '−')} mm/s`, tw = g.measureText(txt).width;
+      const left = x - fs * 0.8 - tw > px(0) + 4, lx = left ? x - fs * 0.8 - tw : x + fs * 0.8;
+      const ly = y + (i === 0 ? fs * 1.1 : -fs * 1.1);
+      g.fillStyle = 'rgba(255,255,255,.92)'; g.beginPath(); g.roundRect(lx - 5, ly - fs * 0.7, tw + 10, fs * 1.4, 7); g.fill();
+      g.fillStyle = tk.ink; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText(txt, lx, ly);
+    });
+    drawLegend(g, [
+      { name: 'Livro (questão 2a)', k: K_BOOK, c: INK1.book, dash: dotted, a: 1 },
+      { name: 'Água (nosso ensaio)', k: ag.k, c: INK1.water, dash: [], a: 1 },
+      { name: 'Óleo (nosso ensaio)', k: ol.k, c: INK1.oil, dash: [], a: 1 },
+    ], { fs, W, Rp, Tp });
+  },
+
+  // gráfico h × t: três curvas do modelo h(t) = (√h0 + (k/2)·t)² e, na etapa 2, as medições
+  plot(g, o) {
+    if (st.stage === 3) return this.plotRate(g, o);
+    const { px, py, fs, W, Rp, Tp } = o;
+    const stage2 = st.stage === 2, el = performance.now() - st.stageAt, [ag, ol] = st.tanks;
+    const curve = (k, h0, color, dash, alpha) => {
+      const tEnd = Math.min(175, analytic.q2.tEmpty(k, h0));
+      g.save(); g.strokeStyle = color; g.globalAlpha = alpha; g.lineWidth = Math.max(2.5, fs * 0.2);
+      g.setLineDash(dash); g.lineCap = 'round'; g.lineJoin = 'round'; g.beginPath();
+      for (let i = 0; i <= 300; i++) {
+        const t = tEnd * i / 300, h = analytic.q2.h(t, k, h0);
+        i ? g.lineTo(px(t), py(h)) : g.moveTo(px(t), py(h));
+      }
+      g.stroke(); g.restore();
+    };
+    const dashed = stage2 ? [fs * 0.7, fs * 0.5] : [], fade = stage2 ? 0.5 : 1, dotted = [0.1, fs * 0.45];
+    curve(ag.k, ag.h0, INK1.water, dashed, fade);
+    curve(ol.k, ol.h0, INK1.oil, dashed, fade);
+    curve(K_BOOK, 10, INK1.book, dotted, 1);
+
+    if (stage2) {
+      // medições entram uma a uma (água e óleo intercaladas, ~80 ms cada)
+      const pts = [];
+      this.measured[0].forEach((p, i) => { pts.push([p, INK1.water]); pts.push([this.measured[1][i], INK1.oil]); });
+      pts.forEach(([[t, h], c], i) => {
+        const a = (el - i * 80) / 160; if (a <= 0) return;
+        const sc = Math.min(1, a), r = fs * 0.42 * (sc < 1 ? 1 + 0.4 * Math.sin(Math.PI * sc) : 1);
+        g.save(); g.globalAlpha = Math.min(1, a * 1.5);
+        g.beginPath(); g.arc(px(t), py(h), r, 0, 7); g.fillStyle = '#fff'; g.fill();
+        g.lineWidth = Math.max(2, fs * 0.16); g.strokeStyle = c; g.stroke(); g.restore();
+      });
+      // losango do livro: 3 cm em 68 s
+      const a = (el - pts.length * 80) / 250;
+      if (a > 0) {
+        const x = px(68), y = py(3), d = fs * 0.6;
+        g.save(); g.globalAlpha = Math.min(1, a);
+        g.beginPath(); g.moveTo(x, y - d); g.lineTo(x + d, y); g.lineTo(x, y + d); g.lineTo(x - d, y); g.closePath();
+        g.fillStyle = INK1.book; g.fill(); g.strokeStyle = '#fff'; g.lineWidth = 2; g.stroke();
+        const txt = 'livro: 3 cm em 68 s';
+        g.font = `600 ${fs}px Inter, system-ui, sans-serif`;
+        const tw = g.measureText(txt).width, bx = x + d + fs * 0.5, by = y - d - fs * 1.6;
+        g.fillStyle = 'rgba(255,255,255,.92)'; g.beginPath(); g.roundRect(bx - 6, by - 4, tw + 12, fs * 1.4 + 8, 8); g.fill();
+        g.fillStyle = INK1.book; g.textAlign = 'left'; g.textBaseline = 'top'; g.fillText(txt, bx, by);
+        g.restore();
+      }
+    }
+    // posição atual dos tanques 3D sobre as curvas
+    st.tanks.forEach(tk => {
+      g.beginPath(); g.arc(px(Math.min(st.t, 175)), py(Math.max(tk.h, 0)), fs * 0.38, 0, 7); g.fillStyle = tk.color; g.fill();
+      g.lineWidth = 2.5; g.strokeStyle = tk.ink; g.stroke();
+    });
+
+    // legenda no canto superior direito
+    const rows = [
+      { name: 'Livro (questão 2a)', k: K_BOOK, c: INK1.book, dash: dotted, a: 1 },
+      { name: 'Água (nosso ensaio)', k: ag.k, c: INK1.water, dash: dashed, a: fade },
+      { name: 'Óleo (nosso ensaio)', k: ol.k, c: INK1.oil, dash: dashed, a: fade },
+    ];
+    if (stage2) rows.push({ name: 'Medições do vídeo', c: C.muted, circle: true });
+    drawLegend(g, rows, { fs, W, Rp, Tp });
+  },
+
+  // comparação de k na barra lateral
+  side(el) {
+    const [ag, ol] = st.tanks, f3 = k => fmt(k, 3);
+    const pct = Math.round(100 * (1 - Math.abs(ol.k) / Math.abs(ag.k)));
+    const html = `<div class="kgrid">
+        <div class="kc book" style="--c:${INK1.book}"><span class="kn">Livro</span><span class="kv">${f3(K_BOOK)}</span></div>
+        <button class="kc${selected === 0 ? ' sel' : ''}" data-i="0" style="--c:${INK1.water}"><span class="kn">Água</span><span class="kv">${f3(ag.k)}</span></button>
+        <button class="kc${selected === 1 ? ' sel' : ''}" data-i="1" style="--c:${INK1.oil}"><span class="kn">Óleo</span><span class="kv">${f3(ol.k)}</span></button>
+      </div>
+      <p class="knote"><b>Água ≈ livro</b> → experimento validado. <b>Óleo:</b> |k| ~${pct}% menor → esvazia mais devagar.</p>`;
+    if (el.dataset.src !== html) { el.innerHTML = html; el.dataset.src = html; }
+  },
+
+  // clique nos tanques 3D: devolve o índice do tanque atingido
+  pick(ray) {
+    const hit = ray.intersectObjects(this.objs.flatMap(o => o.pickMeshes), false)[0];
+    return hit ? hit.object.userData.tank : null;
+  },
+
+  build(tanks) {
+    const base = -1.2, top = 15, floorY = -11, X = 8.5;
+    world.add(makeIsland(40, 3, floorY));
+    // mesa (pedestal)
+    const ped = new THREE.Mesh(new RoundedBoxGeometry(26, base - 0.3 - floorY, 15, 6, 1.2),
+      new THREE.MeshStandardMaterial({ color: C.table, roughness: 0.7, envMapIntensity: 0.35 }));
+    ped.position.y = (base - 0.3 + floorY) / 2; ped.castShadow = ped.receiveShadow = true; world.add(ped);
+    // régua
+    const ruler = makeRuler(-1, top, 4.2); ruler.position.z = 1.5; world.add(ruler);
+
+    const glassMat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.05, metalness: 0, transparent: true,
+      opacity: 0.28, clearcoat: 1, envMapIntensity: 1.6, depthWrite: false });
+    const glassBack = glassMat.clone(); glassBack.side = THREE.BackSide; glassBack.opacity = 0.14;
+    const rimMat = new THREE.MeshStandardMaterial({ color: 0xb9c2bc, roughness: 0.3, metalness: 0.2 });
+
+    this.objs = tanks.map((tk, i) => {
+      const dir = i === 0 ? -1 : 1, x = dir * X, g = new THREE.Group(); g.position.x = x; world.add(g);
+      const Rg = R1 + 0.15;
+      // vidro em duas passadas (parede de trás antes do líquido, frente depois) para a ordem não oscilar ao girar
+      const gGeo = new THREE.CylinderGeometry(Rg, Rg, top - base, 72, 1, true);
+      const back = new THREE.Mesh(gGeo, glassBack); back.position.y = (top + base) / 2; back.renderOrder = 0; g.add(back);
+      const glass = new THREE.Mesh(gGeo, glassMat); glass.position.y = (top + base) / 2; glass.renderOrder = 3; g.add(glass);
+      const bottom = new THREE.Mesh(new THREE.CylinderGeometry(Rg, Rg, 0.3, 72), glassMat); bottom.position.y = base - 0.15; bottom.renderOrder = 3; g.add(bottom);
+      for (const y of [top, base - 0.3]) { const t = new THREE.Mesh(new THREE.TorusGeometry(Rg, 0.12, 12, 72), rimMat); t.rotation.x = Math.PI / 2; t.position.y = y; g.add(t); }
+
+      const col = new THREE.Color(tk.color);
+      const liqMat = new THREE.MeshPhysicalMaterial({ color: col, transparent: true, opacity: 0.72, roughness: 0.15, metalness: 0,
+        emissive: col, emissiveIntensity: 0.06, clearcoat: 1, envMapIntensity: 0.8, depthWrite: false });
+      const lgeo = new THREE.CylinderGeometry(R1 * 0.97, R1 * 0.97, 1, 72); lgeo.translate(0, 0.5, 0);
+      const liq = new THREE.Mesh(lgeo, liqMat); liq.position.y = base; liq.renderOrder = 1; liq.castShadow = true; g.add(liq);
+      const surf = new THREE.Mesh(new THREE.CircleGeometry(R1 * 0.97, 72), new THREE.MeshBasicMaterial({
+        color: col.clone().lerp(new THREE.Color(0xffffff), 0.55), transparent: true, opacity: 0.75, side: THREE.DoubleSide, depthWrite: false }));
+      surf.rotation.x = -Math.PI / 2; surf.renderOrder = 2; g.add(surf);
+      // furo (na altura h = 0)
+      const hole = new THREE.Mesh(new THREE.CircleGeometry(0.35, 24), new THREE.MeshBasicMaterial({ color: C.ink }));
+      hole.position.set(dir * (Rg + 0.02), 0, 0); hole.rotation.y = dir * Math.PI / 2; g.add(hole);
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.07, 8, 24), rimMat);
+      ring.position.copy(hole.position); ring.rotation.y = dir * Math.PI / 2; g.add(ring);
+
+      const jet = new Jet(col.clone().lerp(new THREE.Color(tk.ink), 0.6), dir, new THREE.Vector3(x + dir * (Rg + 0.05), 0, 0), { floorY });
+      world.add(jet.points);
+      const label = makeLabel();
+      [back, glass, liq].forEach(m => m.userData.tank = i);
+      return { liq, surf, jet, label, base, pickMeshes: [back, glass, liq], labelPos: new THREE.Vector3(x, top + 1.6, 0) };
+    });
+    this.labels = this.objs.map(o => ({ el: o.label, pos: o.labelPos }));
+  },
+
+  update(st, dtReal) {
+    st.tanks.forEach((tk, i) => {
+      const o = this.objs[i], hh = Math.max(tk.h, 0);
+      o.liq.scale.y = hh - o.base; o.surf.position.y = hh;
+      const v = st.t > 0 && hh > 0.02 ? outflowSpeed(hh, 981) : 0;
+      o.jet.update(dtReal, v, 1600 * Math.sqrt(hh / tk.h0) + 300);
+      o.label.innerHTML = `${dotHtml(tk)}${tk.name} · ${fmt(hh, 2)} cm`;
+      o.label.classList.toggle('sel', selected === i);
+    });
+  },
+  resetVisuals() { this.objs?.forEach(o => o.jet.clear()); },
+
+  formula(st) {
+    const tt = tx(st.t, 1);
+    const L = [{ tex: `\\dfrac{dh}{dt} = k\\sqrt{h}\\;\\;\\Rightarrow\\;\\; \\sqrt{h} = \\sqrt{h_0} + \\tfrac{k}{2}\\,t`, main: true }];
+    st.tanks.forEach(tk => {
+      const h = Math.max(tk.h, 0);
+      L.push({ head: tk,
+        tex: `\\sqrt{h} = \\sqrt{${tx(tk.h0, 1)}} - ${tx(Math.abs(tk.k) / 2, 4)}\\cdot ${HL(tt)} = ${HL(tx(Math.sqrt(h), 3))}` });
+      L.push({ tex: `\\dfrac{dh}{dt} = ${tx(tk.k, 4)}\\sqrt{${HL(tx(h, 2))}} = ${HL(tx(tk.f(h), 3))}` });
+    });
+    return L;
+  },
+
+  ui(st) {
+    const b = $('#banner'), [a, o] = st.tanks;
+    const ca = a.cross[3], co = o.cross[3];
+    if (st.firstEmpty) {
+      const w = st.firstEmpty;
+      b.innerHTML = `<span class="ttl"><span class="${w.cls}">${w.name}</span> esvaziou primeiro!</span> <span class="sm">${fmt(w.emptyAt, 1)} s</span>
+        <span class="vs">·</span> placar a 3 cm: <span class="w">${fmt(64.4, 1)} s</span> <span class="vs">×</span> <span class="o">${fmt(77.4, 1)} s</span>`;
+      b.classList.remove('hide');
+    } else if (ca != null || co != null) {
+      b.innerHTML = `<span class="ttl">Placar a 3 cm</span> <span class="w">Água ${ca != null ? fmt(64.4, 1) + ' s' : '…'}</span>
+        <span class="vs">×</span> <span class="o">Óleo ${co != null ? fmt(77.4, 1) + ' s' : '…'}</span>
+        <span class="sm">medido · modelo: ${ca != null ? fmt(ca, 1) : '…'} × ${co != null ? fmt(co, 1) : '…'} s</span>`;
+      b.classList.remove('hide');
+    } else b.classList.add('hide');
+  },
+};
+
+// ---------- CENA 0: Lei de Torricelli (introdução) — m, s; estática, controlada pelos sliders ----------
+const S0 = 16, G0 = 10, A0 = Math.PI * 0.01 ** 2, LOSS0 = 0.95;   // furo de raio 1 cm; jato perde 5% da altura
+const torricelli = {
+  key: '0', tab: 'Torricelli', title: 'Lei de Torricelli', goal: 'De onde vem v = √(2gh)?',
+  content: q0, hUnit: 'm', static: true, noGraph: true,
+  params: [
+    { key: 'h', label: 'Altura h (ponta → nível da água)', unit: 'm', min: 0.2, max: 1, step: 0.01, value: 0.8, d: 2 },
+    { key: 'dt', label: 'Δt do cilindro de vazão', unit: 's', min: 0.01, max: 0.5, step: 0.01, value: 0.1, d: 2 },
+  ],
+  marks: [],
+  makeTanks(p) {
+    return [{ name: 'Água', cls: 'w', color: C.water, ink: C.waterInk, k: 0, h0: p.h,
+      f: () => 0, flow: h => -1000 * volumeRate(A0, h, G0) }];
+  },
+  cards: [
+    { label: 'h', unit: 'm', val: tk => fmt(tk.h, 2) },
+    { label: 'v = √(2gh)', unit: 'm/s', val: tk => fmt(outflowSpeed(tk.h, G0), 2) },
+    { label: 'Altura do jato (com atrito)', unit: 'm', val: tk => fmt(LOSS0 * tk.h, 2) },
+    { label: 'Vazão', unit: 'L/s', val: tk => fmt(tk.flow(tk.h), 3) },
+  ],
+  camera: { dist: 100, elev: 22, target: [0, 2, 0] },
+
+  build() {
+    const floorY = -11, standTop = floorY + 0.4 * S0, base = standTop + 0.3, Rt = 0.3 * S0, Rg = Rt + 0.15;
+    const tankX = -6, top = base + 1.25 * S0, tipY = base + 0.15 * S0, exitY = base + 0.6, xJ = tankX + Rg + 4;
+    Object.assign(this, { base, tipY, tankX, Rg, xJ, mode: 'up', showCyl: false, hlUntil: 0, anim: null });
+    world.add(makeIsland(40, 3, floorY));
+    const wood = new THREE.MeshStandardMaterial({ color: C.table, roughness: 0.7, envMapIntensity: 0.35 });
+    const stand = new THREE.Mesh(new RoundedBoxGeometry(2 * Rt + 2, standTop - floorY, 2 * Rt + 2, 6, 0.8), wood);
+    stand.position.set(tankX, (standTop + floorY) / 2, 0); stand.castShadow = stand.receiveShadow = true; world.add(stand);
+
+    // tanque de vidro (duas passadas) e água
+    const glassMat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.05, metalness: 0, transparent: true,
+      opacity: 0.28, clearcoat: 1, envMapIntensity: 1.6, depthWrite: false });
+    const glassBack = glassMat.clone(); glassBack.side = THREE.BackSide; glassBack.opacity = 0.14;
+    const rimMat = new THREE.MeshStandardMaterial({ color: 0xb9c2bc, roughness: 0.3, metalness: 0.2 });
+    const gGeo = new THREE.CylinderGeometry(Rg, Rg, top - base, 72, 1, true);
+    const back = new THREE.Mesh(gGeo, glassBack); back.position.set(tankX, (top + base) / 2, 0); back.renderOrder = 0; world.add(back);
+    const glass = new THREE.Mesh(gGeo, glassMat); glass.position.set(tankX, (top + base) / 2, 0); glass.renderOrder = 3; world.add(glass);
+    for (const y of [top, base]) { const t = new THREE.Mesh(new THREE.TorusGeometry(Rg, 0.12, 12, 72), rimMat); t.rotation.x = Math.PI / 2; t.position.set(tankX, y, 0); world.add(t); }
+    const col = new THREE.Color(C.water);
+    const lgeo = new THREE.CylinderGeometry(Rt * 0.98, Rt * 0.98, 1, 72); lgeo.translate(0, 0.5, 0);
+    this.liq = new THREE.Mesh(lgeo, new THREE.MeshPhysicalMaterial({ color: col, transparent: true, opacity: 0.72, roughness: 0.15,
+      emissive: col, emissiveIntensity: 0.06, clearcoat: 1, envMapIntensity: 0.8, depthWrite: false }));
+    this.liq.position.set(tankX, base, 0); this.liq.renderOrder = 1; world.add(this.liq);
+    this.surf = new THREE.Mesh(new THREE.CircleGeometry(Rt * 0.98, 72), new THREE.MeshBasicMaterial({
+      color: col.clone().lerp(new THREE.Color(0xffffff), 0.55), transparent: true, opacity: 0.75, side: THREE.DoubleSide, depthWrite: false }));
+    this.surf.rotation.x = -Math.PI / 2; this.surf.position.x = tankX; this.surf.renderOrder = 2; world.add(this.surf);
+
+    // tubo em "J": sai perto do fundo e sobe; a ponta fica em tipY (abaixo do nível)
+    const pipeMat = new THREE.MeshStandardMaterial({ color: '#9AA59F', roughness: 0.35, metalness: 0.5 });
+    this.jTube = new THREE.Group(); world.add(this.jTube);
+    const len = xJ - (tankX + Rg);
+    const hp = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, len, 16), pipeMat); hp.rotation.z = Math.PI / 2; hp.position.set(tankX + Rg + len / 2, exitY, 0);
+    const elbow = new THREE.Mesh(new THREE.SphereGeometry(0.37, 16, 12), pipeMat); elbow.position.set(xJ, exitY, 0);
+    const vp = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, tipY - exitY, 16), pipeMat); vp.position.set(xJ, (tipY + exitY) / 2, 0);
+    const tip = new THREE.Mesh(new THREE.TorusGeometry(0.35, 0.08, 8, 24), rimMat); tip.rotation.x = Math.PI / 2; tip.position.set(xJ, tipY, 0);
+    this.jTube.add(hp, elbow, vp, tip);
+    // furo lateral na mesma altura da ponta (mesmo h)
+    this.sideHole = new THREE.Group(); world.add(this.sideHole);
+    const hole = new THREE.Mesh(new THREE.CircleGeometry(0.4, 24), new THREE.MeshBasicMaterial({ color: C.ink }));
+    hole.position.set(tankX + Rg + 0.02, tipY, 0); hole.rotation.y = Math.PI / 2;
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.45, 0.08, 8, 24), rimMat); ring.position.copy(hole.position); ring.rotation.y = Math.PI / 2;
+    this.sideHole.add(hole, ring);
+
+    const jetCol = col.clone().lerp(new THREE.Color(C.waterInk), 0.6), jo = { g: G0 * S0, floorY: floorY + 0.3, size: 0.8, spread: 0.3 };
+    this.jetUp = new Jet(jetCol, new THREE.Vector3(0, 1, 0), new THREE.Vector3(xJ, tipY + 0.15, 0), jo);
+    this.jetSide = new Jet(jetCol, 1, new THREE.Vector3(tankX + Rg + 0.05, tipY, 0), jo);
+    world.add(this.jetUp.points, this.jetSide.points);
+
+    // linha tracejada do nível da água (atravessa o tanque e passa sobre o jato)
+    const hlMat = new THREE.MeshBasicMaterial({ color: C.hl });
+    this.level = new THREE.Group(); world.add(this.level);
+    for (let x = tankX - Rg - 3; x <= xJ + 4.5; x += 1) { const d = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.16, 0.16), hlMat); d.position.x = x; this.level.add(d); }
+    // cota vertical h (da ponta/furo até o nível)
+    this.cota = new THREE.Group(); world.add(this.cota);
+    this.cShaft = new THREE.Mesh(new THREE.BoxGeometry(0.14, 1, 0.14), hlMat);
+    this.cTop = new THREE.Mesh(new THREE.ConeGeometry(0.38, 0.9, 16), hlMat);
+    this.cBot = new THREE.Mesh(new THREE.ConeGeometry(0.38, 0.9, 16), hlMat); this.cBot.rotation.z = Math.PI;
+    this.cTickTop = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.1, 0.1), hlMat);
+    this.cTickBot = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.1, 0.1), hlMat);
+    this.cota.add(this.cShaft, this.cTop, this.cBot, this.cTickTop, this.cTickBot);
+    // cilindro de vazão: base a (desenhada maior que 1 cm para aparecer), comprimento v·Δt
+    const cg = new THREE.CylinderGeometry(0.55, 0.55, 1, 32); cg.translate(0, 0.5, 0);
+    this.flowCyl = new THREE.Mesh(cg, new THREE.MeshPhysicalMaterial({ color: C.waterInk, transparent: true, opacity: 0.4, roughness: 0.2, depthWrite: false }));
+    this.flowCyl.rotation.z = -Math.PI / 2; this.flowCyl.position.set(tankX + Rg + 0.05, tipY, 0); this.flowCyl.renderOrder = 4; world.add(this.flowCyl);
+    this.cap = new THREE.Mesh(new THREE.TorusGeometry(0.55, 0.06, 8, 32), hlMat); this.cap.rotation.y = Math.PI / 2; world.add(this.cap);
+
+    // etiquetas
+    const note = txt => { const el = makeLabel(); el.classList.add('note'); if (txt) el.textContent = txt; return el; };
+    this.lvlLbl = note('nível da água'); this.cotaLbl = note(); this.vLbl = makeLabel();
+    this.aLbl = note('a = π(1 cm)²'); this.vdtLbl = note();
+    this.aLbl.style.opacity = this.vdtLbl.style.opacity = 0;
+    this.pos = { lvl: new THREE.Vector3(), cota: new THREE.Vector3(), v: new THREE.Vector3(), a: new THREE.Vector3(), vdt: new THREE.Vector3() };
+    this.labels = [
+      { el: this.lvlLbl, pos: this.pos.lvl }, { el: this.cotaLbl, pos: this.pos.cota }, { el: this.vLbl, pos: this.pos.v },
+      { el: this.aLbl, pos: this.pos.a }, { el: this.vdtLbl, pos: this.pos.vdt },
+    ];
+  },
+
+  update(st, dtReal) {
+    const h = st.tanks[0].h, v = outflowSpeed(h, G0), level = this.tipY + h * S0, up = this.mode === 'up', now = performance.now();
+    if (this.anim) {   // Δt animado pelos passos 5 e 6
+      const k = Math.min((now - this.anim.t0) / this.anim.dur, 1), e = k * k * (3 - 2 * k);
+      setParam('dt', +(this.anim.from + (this.anim.to - this.anim.from) * e).toFixed(3));
+      if (k >= 1) this.anim = null;
+    }
+    this.liq.scale.y = level - this.base; this.surf.position.y = level;
+    const vj = Math.sqrt(LOSS0) * v * S0;   // sobe até 0,95·h
+    this.jetUp.update(dtReal, up ? vj : 0, 900); this.jetSide.update(dtReal, up ? 0 : vj, 900);
+    this.jTube.visible = up; this.sideHole.visible = !up;
+    this.level.position.y = level;
+    // cota h
+    const len = level - this.tipY, cx = up ? this.xJ + 2.2 : this.tankX - this.Rg - 1.8;
+    this.cota.position.set(cx, this.tipY, 0.3);
+    this.cShaft.scale.y = Math.max(len - 1.6, 0.01); this.cShaft.position.y = len / 2;
+    this.cBot.position.y = 0.45; this.cTop.position.y = len - 0.45; this.cTickBot.position.y = 0; this.cTickTop.position.y = len;
+    // cilindro de vazão
+    const showCyl = !up && this.showCyl, L = Math.max(v * P.dt * S0, 0.01), x0 = this.tankX + this.Rg + 0.05;
+    this.flowCyl.visible = this.cap.visible = showCyl; this.flowCyl.scale.y = L; this.cap.position.set(x0 + L, this.tipY, 0);
+    this.aLbl.style.opacity = this.vdtLbl.style.opacity = showCyl ? 1 : 0;
+    this.vdtLbl.textContent = `v·Δt = ${fmt(v * P.dt, 2)} m`;
+    // etiquetas
+    this.pos.lvl.set(this.xJ + 3.5, level + 0.4, 0);
+    this.pos.cota.set(cx + (up ? 2.8 : -2.8), this.tipY + len / 2 - 0.6, 1.2);
+    this.pos.v.set(up ? this.xJ - 2.2 : x0 + 3, this.tipY + (up ? -1.2 : 4.8), 1);
+    this.pos.a.set(x0 - 0.5, this.tipY - 3.4, 1.5); this.pos.vdt.set(x0 + L / 2, this.tipY + 0.9, 0);
+    this.cotaLbl.textContent = `h = ${fmt(h, 2)} m`;
+    this.vLbl.innerHTML = `${dotHtml(st.tanks[0])}v = ${fmt(v, 2)} m/s`;
+    const hot = now < this.hlUntil;
+    this.lvlLbl.classList.toggle('hot', hot); this.cotaLbl.classList.toggle('hot', hot);
+    this.level.scale.y = this.level.scale.z = hot ? 2 : 1;
+  },
+
+  // ações dos passos: { type: 'scene', mode, cylinder, highlight, animateDt: [de, até], duration }
+  act(a) {
+    if (a.mode) this.setMode(a.mode);
+    if (a.cylinder != null) this.setCyl(a.cylinder);
+    if (a.highlight) this.hlUntil = performance.now() + 6000;
+    if (a.animateDt) this.anim = { from: a.animateDt[0], to: a.animateDt[1], t0: performance.now(), dur: a.duration || 2500 };
+  },
+  setMode(m) { if (m !== this.mode) { this.mode = m; this.jetUp.clear(); this.jetSide.clear(); } this.syncCtl(); },
+  setCyl(on) { this.showCyl = on; this.syncCtl(); },
+  buildCtl(el) {
+    el.innerHTML = `<div class="seg" data-ctl="mode"><button data-m="up">Jato para cima</button><button data-m="side">Furo lateral</button></div>
+      <button class="pill" data-ctl="cyl">Cilindro de vazão</button>`;
+    el.querySelector('[data-ctl=mode]').onclick = e => { const b = e.target.closest('button'); if (b) { b.blur(); this.setMode(b.dataset.m); } };
+    el.querySelector('[data-ctl=cyl]').onclick = e => {   // no modo "para cima", ligar o cilindro passa para o furo lateral
+      e.currentTarget.blur(); const on = !(this.showCyl && this.mode === 'side'); if (on) this.setMode('side'); this.setCyl(on);
+    };
+    this.ctl = el; this.syncCtl();
+  },
+  syncCtl() {
+    if (!this.ctl) return;
+    this.ctl.querySelectorAll('[data-m]').forEach(b => b.classList.toggle('on', b.dataset.m === this.mode));
+    this.ctl.querySelector('[data-ctl=cyl]').classList.toggle('on', this.showCyl && this.mode === 'side');
+  },
+
+  formula(st) {
+    const h = st.tanks[0].h, v = outflowSpeed(h, G0);
+    return [
+      { tex: `v = \\sqrt{2gh} = \\sqrt{2\\cdot 10\\cdot ${HL(tx(h, 2))}} = ${HL(tx(v, 2))}\\ \\text{m/s}` },
+      { tex: `h_{\\text{jato}} = \\dfrac{v^2}{2g} = ${HL(tx(v * v / (2 * G0), 2))}\\ \\text{m}\\ \\ (\\approx h)` },
+      { tex: `\\dfrac{dV}{dt} = -a\\,v = -\\pi(0{,}01)^2\\cdot ${HL(tx(v, 2))} = ${HL(tx(-1000 * A0 * v, 3))}\\ \\text{L/s}` },
+    ];
+  },
+};
+
+// ---------- CENA 1: cilindro (Questão 1) — unidades m e s ----------
+const S1 = 8;                                  // unidades 3D por metro
+const C1 = analytic.q1.C;                      // √h = √h0 − C1·t
+const A_HOLE1 = 0.0004 * Math.PI;              // área do furo (m²); tanque: A = π
+const cilindro = {
+  key: '1', tab: 'Cilindro', title: 'Questão 1 — Cilindro', goal: 'Quanto tempo o tanque cheio leva para esvaziar?',
+  content: q1, hUnit: 'm', speeds: [1, 10, 50, 100], speed0: 50,
+  params: [], marks: [],
+  makeTanks() {
+    return [{ name: 'Tanque', cls: 'w', color: C.water, ink: C.waterInk, k: -C1, ...sim.q1,
+      flow: h => -1000 * volumeRate(A_HOLE1, h, 10) }];               // L/s
+  },
+  cards: [
+    { label: 'h atual', unit: 'm', val: tk => fmt(Math.max(tk.h, 0), 3) },
+    { label: 'Vazão', unit: 'L/s', val: tk => fmt(tk.flow(tk.h), 2) },
+    { label: 'Esvazia em', duration: true, secs: tk => tk.tl.tEmpty,
+      mark: tk => tk.emptyAt != null ? ' ✓' : '' },
+    { label: 'Tempo decorrido', unit: 's', val: (tk, st) => fmt(st.t, 1) },
+  ],
+  axes: { x: { from: 0, to: 1700, step: 200 }, y: { from: 0, to: 2.2, step: 0.5 }, xLabel: 't (s)', yLabel: 'h (m)' },
+  camera: { dist: 128, elev: 25, target: [0, 0, 0] },
+
+  build(tanks) {
+    const floorY = -11, base = floorY + 1 * S1, top = base + 2 * S1, R = 1 * S1, Rg = R + 0.15;
+    Object.assign(this, { base, hlUntil: 0, hovering: false });
+    world.add(makeIsland(40, 3, floorY));
+    const wood = new THREE.MeshStandardMaterial({ color: C.table, roughness: 0.7, envMapIntensity: 0.35 });
+    // suporte: anel sob o tanque e quatro pés (1 m de altura) para o jato cair livre
+    const ringBase = new THREE.Mesh(new THREE.TorusGeometry(R - 0.4, 0.45, 12, 72), wood);
+    ringBase.rotation.x = Math.PI / 2; ringBase.position.y = base - 0.45; ringBase.castShadow = true; world.add(ringBase);
+    for (let i = 0; i < 4; i++) {
+      const a = Math.PI / 4 + i * Math.PI / 2, leg = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.55, base - floorY, 16), wood);
+      leg.position.set((R - 0.4) * Math.cos(a), (base + floorY) / 2, (R - 0.4) * Math.sin(a)); leg.castShadow = true; world.add(leg);
+    }
+    // bacia no chão para o jato
+    const tray = new THREE.Mesh(new THREE.CylinderGeometry(3.2, 3.4, 0.6, 48), wood); tray.position.y = floorY + 0.3; tray.receiveShadow = true; world.add(tray);
+    const pool = new THREE.Mesh(new THREE.CircleGeometry(2.8, 48), new THREE.MeshStandardMaterial({ color: C.water, roughness: 0.2 }));
+    pool.rotation.x = -Math.PI / 2; pool.position.y = floorY + 0.61; world.add(pool);
+    // régua lateral em metros (0 no fundo, onde fica o furo)
+    const ruler = makeRuler(-0.05, 2.1, 0.75, 'm', 0.5, 5, 900);
+    ruler.scale.set(S1, S1, 1); ruler.position.set(Rg + 4.2, base + ruler.position.y * S1, 2); world.add(ruler);
+
+    const glassMat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.05, metalness: 0, transparent: true,
+      opacity: 0.28, clearcoat: 1, envMapIntensity: 1.6, depthWrite: false });
+    const glassBack = glassMat.clone(); glassBack.side = THREE.BackSide; glassBack.opacity = 0.14;
+    const rimMat = new THREE.MeshStandardMaterial({ color: 0xb9c2bc, roughness: 0.3, metalness: 0.2 });
+    // vidro em duas passadas, como na garrafa
+    const gGeo = new THREE.CylinderGeometry(Rg, Rg, top - base, 96, 1, true);
+    const back = new THREE.Mesh(gGeo, glassBack); back.position.y = (top + base) / 2; back.renderOrder = 0; world.add(back);
+    const glass = new THREE.Mesh(gGeo, glassMat); glass.position.y = (top + base) / 2; glass.renderOrder = 3; world.add(glass);
+    const bottom = new THREE.Mesh(new THREE.CylinderGeometry(Rg, Rg, 0.3, 96), glassMat); bottom.position.y = base - 0.15; bottom.renderOrder = 3; world.add(bottom);
+    for (const y of [top, base - 0.3]) { const t = new THREE.Mesh(new THREE.TorusGeometry(Rg, 0.14, 12, 96), rimMat); t.rotation.x = Math.PI / 2; t.position.y = y; world.add(t); }
+
+    const col = new THREE.Color(C.water);
+    const lgeo = new THREE.CylinderGeometry(R * 0.985, R * 0.985, 1, 96); lgeo.translate(0, 0.5, 0);
+    const liq = new THREE.Mesh(lgeo, new THREE.MeshPhysicalMaterial({ color: col, transparent: true, opacity: 0.72, roughness: 0.15,
+      emissive: col, emissiveIntensity: 0.06, clearcoat: 1, envMapIntensity: 0.8, depthWrite: false }));
+    liq.position.y = base; liq.renderOrder = 1; liq.castShadow = true; world.add(liq);
+    const surf = new THREE.Mesh(new THREE.CircleGeometry(R * 0.985, 96), new THREE.MeshBasicMaterial({
+      color: col.clone().lerp(new THREE.Color(0xffffff), 0.55), transparent: true, opacity: 0.75, side: THREE.DoubleSide, depthWrite: false }));
+    surf.rotation.x = -Math.PI / 2; surf.renderOrder = 2; world.add(surf);
+    // furo no centro do fundo (bocal desenhado um pouco maior que os 2 cm reais, para aparecer)
+    const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.5, 0.5, 24), new THREE.MeshStandardMaterial({ color: C.ink, roughness: 0.4 }));
+    nozzle.position.y = base - 0.55; world.add(nozzle);
+
+    // destaques de cota: raio no topo e anel no furo (aparecem ao passar o mouse ou na ação do passo 1)
+    const hlMat = new THREE.LineBasicMaterial({ color: C.hl });
+    const rLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, top + 0.05, 0), new THREE.Vector3(Rg, top + 0.05, 0)]), hlMat);
+    const center = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 12), new THREE.MeshBasicMaterial({ color: C.hl }));
+    center.position.set(0, top + 0.05, 0);
+    const holeRing = new THREE.Mesh(new THREE.TorusGeometry(0.9, 0.09, 8, 32), new THREE.MeshBasicMaterial({ color: C.hl }));
+    holeRing.rotation.x = Math.PI / 2; holeRing.position.y = base - 0.8;
+    this.hlMarks = [rLine, center, holeRing]; this.hlMarks.forEach(m => { m.visible = false; world.add(m); });
+
+    const jet = new THREE.Vector3(0, -1, 0);
+    this.jet = new Jet(col.clone().lerp(new THREE.Color(C.waterInk), 0.6), jet, new THREE.Vector3(0, base - 0.8, 0),
+      { g: 10 * S1, floorY: floorY + 0.6, size: 0.95, spread: 0.35 });
+    world.add(this.jet.points);
+    this.liq = liq; this.surf = surf; this.pickMeshes = [back, glass, liq, nozzle];
+    this.label = makeLabel();
+    this.lblR = makeLabel(); this.lblR.classList.add('note'); this.lblR.textContent = 'R = 1 m';
+    this.lblHole = makeLabel(); this.lblHole.classList.add('note'); this.lblHole.textContent = 'furo: r = 2 cm';
+    this.labels = [
+      { el: this.label, pos: new THREE.Vector3(0, top + 6.5, 0) },
+      { el: this.lblR, pos: new THREE.Vector3(Rg / 2, top + 1.2, 0) },
+      { el: this.lblHole, pos: new THREE.Vector3(-(Rg + 2.5), base - 0.5, 0) },
+    ];
+  },
+
+  update(st, dtReal) {
+    const tk = st.tanks[0], h = Math.max(tk.h, 0);
+    this.liq.scale.y = Math.max(h * S1, 0.001); this.surf.position.y = this.base + h * S1;
+    this.jet.update(dtReal, st.t > 0 && h > 1e-4 ? outflowSpeed(h, 10) * S1 : 0, 500 * Math.sqrt(h / 2) + 150);
+    this.label.innerHTML = `${dotHtml(tk)}Tanque · ${fmt(h, 3)} m`;
+    const show = this.hovering || performance.now() < this.hlUntil;
+    this.hlMarks.forEach(m => { m.visible = show; });
+    this.lblR.style.opacity = this.lblHole.style.opacity = show ? 1 : 0;
+  },
+  resetVisuals() { this.jet?.clear(); },
+  hover(ray) { this.hovering = !!ray && ray.intersectObjects(this.pickMeshes, false).length > 0; },
+  highlight() { this.hlUntil = performance.now() + 6000; },
+
+  formula(st) {
+    const tk = st.tanks[0], h = Math.max(tk.h, 0), tt = HL(tx(st.t, 1));
+    return [
+      { tex: `h = \\left(\\sqrt{2} - 0{,}0002\\sqrt{20}\\cdot ${tt}\\right)^2 = ${HL(tx(h, 3))}\\ \\text{m}` },
+      { tex: `\\dfrac{dh}{dt} = -0{,}0004\\sqrt{20\\cdot ${HL(tx(h, 3))}} = ${HL(tx(tk.f(h), 5))}\\ \\text{m/s}` },
+    ];
+  },
+
+  // h × t: curva do modelo, ponto atual e o instante em que esvazia
+  plot(g, { px, py, fs, H, Bp, Tp }) {
+    const tk = st.tanks[0], T = analytic.q1.tEmpty(tk.h0);
+    g.save(); g.strokeStyle = C.waterInk; g.lineWidth = Math.max(2.5, fs * 0.2); g.lineJoin = 'round'; g.beginPath();
+    for (let i = 0; i <= 300; i++) { const t = T * i / 300, h = analytic.q1.h(t, tk.h0); i ? g.lineTo(px(t), py(h)) : g.moveTo(px(t), py(h)); }
+    g.lineTo(px(1700), py(0)); g.stroke(); g.restore();
+    // linha vertical em T com o tempo formatado
+    g.save(); g.strokeStyle = C.hl; g.lineWidth = 2; g.setLineDash([fs * 0.5, fs * 0.4]);
+    g.beginPath(); g.moveTo(px(T), H - Bp); g.lineTo(px(T), Tp); g.stroke(); g.restore();
+    const txt = fmtDur(T);
+    g.font = `700 ${fs}px Inter, system-ui, sans-serif`;
+    const tw = g.measureText(txt).width, lx = px(T) - fs * 0.6 - tw, ly = py(1.6);
+    g.fillStyle = 'rgba(255,255,255,.92)'; g.beginPath(); g.roundRect(lx - 6, ly - fs * 0.75, tw + 12, fs * 1.5, 7); g.fill();
+    g.fillStyle = C.hl; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText(txt, lx, ly);
+    // ponto atual
+    g.beginPath(); g.arc(px(Math.min(st.t, 1700)), py(Math.max(tk.h, 0)), fs * 0.42, 0, 7); g.fillStyle = tk.color; g.fill();
+    g.lineWidth = 2.5; g.strokeStyle = tk.ink; g.stroke();
+  },
+
+  ui(st) {
+    const b = $('#banner'), tk = st.tanks[0];
+    if (tk.emptyAt != null) {
+      b.innerHTML = `<span class="ttl">Tanque vazio</span> em <span class="w">${fmtDur(tk.emptyAt)}</span> <span class="sm">(${fmt(tk.emptyAt, 1)} s)</span>`;
+      b.classList.remove('hide');
+    } else b.classList.add('hide');
+  },
+};
+
+// ---------- CENA 3: sistema anti-incêndio (Questão 3) — m, s, kPa ----------
+const S3 = 1.6;                                              // unidades 3D por metro
+const H_MIN3 = analytic.q3.H_MIN;                            // ≈ 11,2833 m (com 11,28 exatos, P(600) ≈ 103,97 kPa)
+const P_OK = '#2E7D4F';
+const pColor = P => P >= 104 - 1e-5 ? P_OK : C.hl;
+
+// mostrador do manômetro (0 a 150 kPa); o ponteiro gira θ = 135° − 1,8°·P
+function makeGaugeFace() {
+  const N = 512, c = document.createElement('canvas'); c.width = c.height = N; const g = c.getContext('2d');
+  const cx = N / 2, cy = N / 2, pt = (P, r) => { const t = (135 - 1.8 * P) * Math.PI / 180; return [cx - Math.sin(t) * r, cy - Math.cos(t) * r]; };
+  g.fillStyle = C.card; g.beginPath(); g.arc(cx, cy, N / 2, 0, 7); g.fill();
+  const arc = (p0, p1, col) => { g.strokeStyle = col; g.lineWidth = 30; g.beginPath();
+    for (let P = p0; P <= p1 + 1e-9; P += 0.5) { const [x, y] = pt(P, 200); P === p0 ? g.moveTo(x, y) : g.lineTo(x, y); } g.stroke(); };
+  arc(0, 104, 'rgba(181,82,59,.35)'); arc(104, 150, 'rgba(46,125,79,.35)');
+  g.strokeStyle = C.ink; g.fillStyle = C.ink; g.textAlign = 'center'; g.textBaseline = 'middle';
+  for (let P = 0; P <= 150; P += 10) {
+    const big = P % 50 === 0, [x0, y0] = pt(P, 218), [x1, y1] = pt(P, big ? 168 : 185);
+    g.lineWidth = big ? 8 : 4; g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke();
+    if (big) { const [tx_, ty] = pt(P, 128); g.font = '700 46px Inter, system-ui, sans-serif'; g.fillText(String(P), tx_, ty); }
+  }
+  const [a0, b0] = pt(104, 222), [a1, b1] = pt(104, 158);
+  g.strokeStyle = C.hl; g.lineWidth = 9; g.beginPath(); g.moveTo(a0, b0); g.lineTo(a1, b1); g.stroke();
+  g.font = '600 40px Inter, system-ui, sans-serif'; g.fillStyle = C.muted; g.fillText('kPa', cx, cy + 105);
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+  return tex;
+}
+
+const incendio = {
+  key: '3', tab: 'Anti-incêndio', title: 'Questão 3 — Sistema anti-incêndio', goal: 'Que altura garante P ≥ 104 kPa por 10 minutos?',
+  content: q3, hUnit: 'm', speeds: [1, 10, 50, 100], speed0: 10,
+  params: [{ key: 'H', label: 'Altura inicial H', unit: 'm', min: 10, max: 13, step: 0.01, value: H_MIN3, d: 2 }],
+  paramButtons: [{ label: 'Usar altura mínima (11,28 m)', set: { H: H_MIN3 } }],
+  marks: [10.4], pauseAt: [600], tEnd: sim.Q3_T_END,
+  stageName: () => 'Gráfico P × t',
+  makeTanks(p) {
+    return [{ name: 'Tanque', cls: 'w', color: C.water, ink: C.waterInk, k: -2 * analytic.q3.C, ...sim.q3(p.H),
+      flow: h => -1000 * volumeRate(0.0009 * Math.PI, h, 10) }];
+  },
+  // situação da exigência P ≥ 104 kPa até t = 600 s
+  status(st) {
+    const tk = st.tanks[0];
+    if (tk.h0 < 10.4 - 1e-6) return { done: true, ok: false, t: 0 };
+    const c = tk.cross[10.4];
+    if (c != null && c < 600 - 1e-3) return { done: true, ok: false, t: c };
+    if (st.t >= 600 - 1e-9) return { done: true, ok: true, P600: analytic.q3.pressure(analytic.q3.h(600, tk.h0)) };
+    return { done: false };
+  },
+  cards: [
+    { label: 'h atual', unit: 'm', val: tk => fmt(Math.max(tk.h, 0), 3) },
+    { label: 'Pressão', unit: 'kPa', val: tk => { const P = 10 * Math.max(tk.h, 0); return `<span style="color:${pColor(P)}">${fmt(P, 2)}</span>`; } },
+    { label: 'Bombas ligam em', duration: true, secs: (tk, st) => Math.max(600 - st.t, 0),
+      mark: (tk, st) => st.t >= 600 - 1e-9 ? ' ✓ ligadas' : '' },
+    { label: 'Status', unit: '', val: (tk, st) => {
+      const r = incendio.status(st);
+      return !r.done ? `<span style="color:${C.muted}">monitorando…</span>`
+        : r.ok ? `<span style="color:${P_OK}">✓ mantida</span>` : `<span style="color:${C.hl}">✗ caiu (${fmt(r.t, 0)} s)</span>`;
+    } },
+  ],
+  axes: { x: { from: 0, to: 900, step: 100 }, y: { from: 90, to: 135, step: 5 }, xLabel: 't (s)', yLabel: 'P (kPa)' },
+  camera: { dist: 118, elev: 25, target: [0, 5, 0] },
+
+  build() {
+    const floorY = -11, roofY = floorY + 10, base = roofY + 1, R = 3 * S3, Rg = R + 0.15, top = base + 13.5 * S3;
+    const bw = 26, bd = 16, y10 = base + 10.4 * S3, rx = -(Rg + 3);
+    Object.assign(this, { base, hlUntil: 0, lastOk: null });
+    world.add(makeIsland(40, 3, floorY));
+    // prédio de brinquedo: bloco, laje do telhado, janelas e porta
+    const bmat = new THREE.MeshStandardMaterial({ color: C.table, roughness: 0.7, envMapIntensity: 0.35 });
+    const bld = new THREE.Mesh(new RoundedBoxGeometry(bw, roofY - floorY, bd, 6, 0.8), bmat);
+    bld.position.y = (roofY + floorY) / 2; bld.castShadow = bld.receiveShadow = true; world.add(bld);
+    const roof = new THREE.Mesh(new RoundedBoxGeometry(bw + 1, 0.8, bd + 1, 4, 0.35), new THREE.MeshStandardMaterial({ color: C.cream, roughness: 0.8 }));
+    roof.position.y = roofY; roof.castShadow = roof.receiveShadow = true; world.add(roof);
+    const winMat = new THREE.MeshStandardMaterial({ color: '#CFE0DA', roughness: 0.2, metalness: 0.1, envMapIntensity: 1 });
+    for (const y of [floorY + 3, floorY + 7]) for (const x of [-9, -3, 3, 9]) {
+      const w = new THREE.Mesh(new RoundedBoxGeometry(3.2, 2.4, 0.3, 3, 0.2), winMat); w.position.set(x, y, bd / 2 + 0.05); world.add(w);
+    }
+    for (const y of [floorY + 3, floorY + 7]) for (const z of [-4, 4]) {
+      const w = new THREE.Mesh(new RoundedBoxGeometry(0.3, 2.4, 3.2, 3, 0.2), winMat); w.position.set(bw / 2 + 0.05, y, z); world.add(w);
+    }
+    const door = new THREE.Mesh(new RoundedBoxGeometry(2.6, 4, 0.3, 3, 0.2), new THREE.MeshStandardMaterial({ color: '#C9B79A', roughness: 0.6 }));
+    door.position.set(0, floorY + 2, bd / 2 + 0.05); world.add(door);
+    const plinth = new THREE.Mesh(new THREE.CylinderGeometry(Rg + 0.6, Rg + 0.6, 0.6, 64), bmat);
+    plinth.position.y = roofY + 0.7; plinth.castShadow = plinth.receiveShadow = true; world.add(plinth);
+
+    // tanque (vidro em duas passadas) e água
+    const glassMat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.05, metalness: 0, transparent: true,
+      opacity: 0.28, clearcoat: 1, envMapIntensity: 1.6, depthWrite: false });
+    const glassBack = glassMat.clone(); glassBack.side = THREE.BackSide; glassBack.opacity = 0.14;
+    const rimMat = new THREE.MeshStandardMaterial({ color: 0xb9c2bc, roughness: 0.3, metalness: 0.2 });
+    const gGeo = new THREE.CylinderGeometry(Rg, Rg, top - base, 96, 1, true);
+    const back = new THREE.Mesh(gGeo, glassBack); back.position.y = (top + base) / 2; back.renderOrder = 0; world.add(back);
+    const glass = new THREE.Mesh(gGeo, glassMat); glass.position.y = (top + base) / 2; glass.renderOrder = 3; world.add(glass);
+    for (const y of [top, base]) { const t = new THREE.Mesh(new THREE.TorusGeometry(Rg, 0.14, 12, 96), rimMat); t.rotation.x = Math.PI / 2; t.position.y = y; world.add(t); }
+    const col = new THREE.Color(C.water);
+    const lgeo = new THREE.CylinderGeometry(R * 0.985, R * 0.985, 1, 96); lgeo.translate(0, 0.5, 0);
+    this.liq = new THREE.Mesh(lgeo, new THREE.MeshPhysicalMaterial({ color: col, transparent: true, opacity: 0.72, roughness: 0.15,
+      emissive: col, emissiveIntensity: 0.06, clearcoat: 1, envMapIntensity: 0.8, depthWrite: false }));
+    this.liq.position.y = base; this.liq.renderOrder = 1; this.liq.castShadow = true; world.add(this.liq);
+    this.surf = new THREE.Mesh(new THREE.CircleGeometry(R * 0.985, 96), new THREE.MeshBasicMaterial({
+      color: col.clone().lerp(new THREE.Color(0xffffff), 0.55), transparent: true, opacity: 0.75, side: THREE.DoubleSide, depthWrite: false }));
+    this.surf.rotation.x = -Math.PI / 2; this.surf.renderOrder = 2; world.add(this.surf);
+
+    // régua de 0 a 13 m e faixa tracejada do mínimo (10,4 m ↔ 104 kPa)
+    const ruler = makeRuler(-0.2, 13.4, 2.4, 'm', 1, 2, 170);
+    ruler.scale.set(S3, S3, 1); ruler.position.set(rx, base + ruler.position.y * S3, 1); world.add(ruler);
+    const hlMat = new THREE.MeshBasicMaterial({ color: C.hl });
+    this.band = new THREE.Group(); this.band.position.y = y10; world.add(this.band);
+    for (let i = 0; i < 56; i++) {
+      const a = i / 56 * Math.PI * 2, dash = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.2, 0.08), hlMat);
+      dash.position.set(Math.cos(a) * (Rg + 0.12), 0, Math.sin(a) * (Rg + 0.12)); dash.rotation.y = -a + Math.PI / 2; this.band.add(dash);
+    }
+    for (let i = 0; i < 5; i++) {
+      const dash = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.2, 0.08), hlMat); dash.position.set(rx - 1.6 + i * 0.8, 0, 1.06); this.band.add(dash);
+    }
+
+    // tubo de saída no fundo e manômetro
+    const pipeMat = new THREE.MeshStandardMaterial({ color: '#9AA59F', roughness: 0.35, metalness: 0.5 });
+    const py0 = base + 0.5;
+    const hp = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 4.1, 16), pipeMat); hp.rotation.z = Math.PI / 2; hp.position.set(Rg + 1.95, py0, 0); world.add(hp);
+    const elbow = new THREE.Mesh(new THREE.SphereGeometry(0.34, 16, 12), pipeMat); elbow.position.set(Rg + 4, py0, 0); world.add(elbow);
+    const vp = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, py0 - roofY, 16), pipeMat); vp.position.set(Rg + 4, (py0 + roofY) / 2, 0); world.add(vp);
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 1.4, 12), pipeMat); stem.position.set(Rg + 2, py0 + 0.7, 0); world.add(stem);
+    const gauge = new THREE.Group(); gauge.position.set(Rg + 2, py0 + 1.4 + 1.5, 0.2); gauge.rotation.x = -0.25; world.add(gauge);
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 0.5, 48), new THREE.MeshStandardMaterial({ color: C.card, roughness: 0.5 }));
+    body.rotation.x = Math.PI / 2; body.castShadow = true; gauge.add(body);
+    const face = new THREE.Mesh(new THREE.CircleGeometry(1.36, 64), new THREE.MeshBasicMaterial({ map: makeGaugeFace() })); face.position.z = 0.26; gauge.add(face);
+    this.gaugeRing = new THREE.Mesh(new THREE.TorusGeometry(1.5, 0.16, 12, 48), new THREE.MeshStandardMaterial({ color: P_OK, roughness: 0.4 }));
+    this.gaugeRing.position.z = 0.22; gauge.add(this.gaugeRing);
+    const ng = new THREE.BoxGeometry(0.1, 1.15, 0.05); ng.translate(0, 0.5, 0);
+    this.needle = new THREE.Mesh(ng, new THREE.MeshBasicMaterial({ color: C.ink })); this.needle.position.z = 0.3; gauge.add(this.needle);
+    const hub = new THREE.Mesh(new THREE.SphereGeometry(0.14, 12, 12), new THREE.MeshBasicMaterial({ color: C.ink })); hub.position.z = 0.3; gauge.add(hub);
+
+    // relógio das bombas na fachada, acima da porta (uma volta em 10 min)
+    const cx = 0, cz = bd / 2 + 0.2, cyc = floorY + 6.6;
+    const clock = new THREE.Group(); clock.position.set(cx, cyc, cz); world.add(clock);
+    const cb = new THREE.Mesh(new THREE.CylinderGeometry(1.3, 1.3, 0.35, 48), new THREE.MeshStandardMaterial({ color: C.ink, roughness: 0.5 }));
+    cb.rotation.x = Math.PI / 2; cb.castShadow = true; clock.add(cb);
+    const cf = new THREE.Mesh(new THREE.CircleGeometry(1.12, 48), new THREE.MeshBasicMaterial({ color: C.card })); cf.position.z = 0.18; clock.add(cf);
+    for (let i = 0; i < 12; i++) {
+      const a = i / 12 * Math.PI * 2, tick = new THREE.Mesh(new THREE.BoxGeometry(0.07, i % 3 ? 0.14 : 0.26, 0.02), new THREE.MeshBasicMaterial({ color: C.ink }));
+      tick.position.set(Math.sin(a) * 0.95, Math.cos(a) * 0.95, 0.19); tick.rotation.z = -a; clock.add(tick);
+    }
+    const hg = new THREE.BoxGeometry(0.1, 0.95, 0.03); hg.translate(0, 0.42, 0);
+    this.clockHand = new THREE.Mesh(hg, new THREE.MeshBasicMaterial({ color: C.hl })); this.clockHand.position.z = 0.21; clock.add(this.clockHand);
+
+    // etiquetas
+    this.label = makeLabel(); this.gaugeLbl = makeLabel(); this.clockLbl = makeLabel();
+    this.bandLbl = makeLabel(); this.bandLbl.classList.add('note'); this.bandLbl.textContent = 'mínimo: 104 kPa';
+    this.labels = [
+      { el: this.label, pos: new THREE.Vector3(0, top + 2, 0) },
+      { el: this.gaugeLbl, pos: new THREE.Vector3(Rg + 2, py0 + 1.4 + 3.4, 0.2) },
+      { el: this.clockLbl, pos: new THREE.Vector3(cx + 7, cyc + 1.4, cz) },
+      { el: this.bandLbl, pos: new THREE.Vector3(rx, y10 + 0.6, 1) },
+    ];
+  },
+
+  update(st) {
+    const tk = st.tanks[0], h = Math.max(tk.h, 0), P = 10 * h, ok = P >= 104 - 1e-5;
+    this.liq.scale.y = Math.max(h * S3, 0.001); this.surf.position.y = this.base + h * S3;
+    this.needle.rotation.z = THREE.MathUtils.degToRad(135 - 1.8 * Math.min(P, 150));
+    if (ok !== this.lastOk) { this.gaugeRing.material.color.set(ok ? P_OK : C.hl); this.lastOk = ok; }
+    this.gaugeLbl.textContent = `${fmt(P, 2)} kPa`;
+    this.gaugeLbl.classList.toggle('good', ok); this.gaugeLbl.classList.toggle('bad', !ok);
+    this.clockHand.rotation.z = -2 * Math.PI * Math.min(st.t / 600, 1);
+    this.clockLbl.textContent = st.t >= 600 - 1e-9 ? '⏱ bombas ligadas ✓'
+      : st.t > 0 ? `⏱ bombas ligam em ${fmtDur(600 - st.t)}` : '⏱ bombas ligam em 10 min';
+    this.label.innerHTML = `${dotHtml(tk)}Tanque · h = ${fmt(h, 2)} m`;
+    const hot = performance.now() < this.hlUntil;
+    this.bandLbl.classList.toggle('hot', hot);
+    this.band.scale.y = hot ? 2.2 : 1;
+  },
+  highlight() { this.hlUntil = performance.now() + 6000; },
+
+  formula(st) {
+    const tk = st.tanks[0], h = Math.max(tk.h, 0), P = 10 * h;
+    return [
+      { tex: `h = \\left(\\sqrt{${tx(tk.h0, 2)}} - 0{,}00005\\sqrt{20}\\cdot ${HL(tx(st.t, 1))}\\right)^2 = ${HL(tx(h, 3))}\\ \\text{m}` },
+      { tex: `P = 10\\cdot ${HL(tx(h, 3))} = \\textcolor{${pColor(P)}}{${tx(P, 2)}}\\ \\text{kPa}` },
+    ];
+  },
+
+  // P × t: curva do modelo, mínimo de 104 kPa e o instante em que as bombas ligam
+  plot(g, { px, py, fs, W, H, Lp, Rp, Tp, Bp }) {
+    const tk = st.tanks[0];
+    g.fillStyle = 'rgba(181,82,59,.07)'; g.fillRect(Lp, py(104), W - Rp - Lp, py(90) - py(104));
+    const dashed = (x0, y0, x1, y1, col) => { g.save(); g.strokeStyle = col; g.lineWidth = 2; g.setLineDash([fs * 0.5, fs * 0.4]);
+      g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke(); g.restore(); };
+    dashed(Lp, py(104), W - Rp, py(104), C.hl);
+    dashed(px(600), Tp, px(600), H - Bp, C.ink);
+    const tag = (txt, x, y, col, align = 'left') => {
+      g.font = `700 ${fs}px Inter, system-ui, sans-serif`; const tw = g.measureText(txt).width, lx = align === 'left' ? x : x - tw;
+      g.fillStyle = 'rgba(255,255,255,.92)'; g.beginPath(); g.roundRect(lx - 5, y - fs * 0.7, tw + 10, fs * 1.4, 7); g.fill();
+      g.fillStyle = col; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText(txt, lx, y);
+    };
+    g.save(); g.strokeStyle = C.waterInk; g.lineWidth = Math.max(2.5, fs * 0.2); g.lineJoin = 'round'; g.beginPath();
+    for (let i = 0; i <= 300; i++) { const t = 900 * i / 300, P = analytic.q3.pressure(analytic.q3.h(t, tk.h0)); i ? g.lineTo(px(t), py(P)) : g.moveTo(px(t), py(P)); }
+    g.stroke(); g.restore();
+    tag('104 kPa', W - Rp - 8, py(104) + fs * 1.1, C.hl, 'right');
+    tag('10 min', px(600) + fs * 0.5, Tp + fs * 1.1, C.ink);
+    const P = 10 * Math.max(tk.h, 0);
+    g.beginPath(); g.arc(px(Math.min(st.t, 900)), py(P), fs * 0.42, 0, 7); g.fillStyle = pColor(P); g.fill();
+    g.lineWidth = 2.5; g.strokeStyle = '#fff'; g.stroke();
+  },
+
+  ui(st) {
+    const b = $('#banner');
+    if (st.t < 600 - 1e-9) { b.classList.add('hide'); return; }
+    const r = this.status(st);
+    b.innerHTML = r.ok
+      ? `<span class="ttl" style="color:${P_OK}">✓ Pressão mantida:</span> P(600) = <span style="color:${P_OK}">${fmt(r.P600, 2)} kPa</span>`
+      : `<span class="ttl" style="color:${C.hl}">✗ Pressão caiu abaixo de 104 kPa</span> em t = <span style="color:${C.hl}">${fmt(r.t, 1)} s</span>`;
+    b.classList.remove('hide');
+  },
+};
+
+// ---------- CENA 4: esfera (Questão 4) — m, s ----------
+const S4 = 6;                                   // unidades 3D por metro
+const R4 = analytic.q4.R, C4 = analytic.q4.C;  // raio da esfera (m); (4h − h²)·dh/dt = −C4·√h
+const area4 = analytic.q4.area;
+const tEmpty4 = analytic.q4.tEmpty;              // tempo exato para esvaziar a partir de h
+renderer.localClippingEnabled = true;           // a água é a esfera cortada no plano da superfície
+
+const esfera = {
+  key: '4', tab: 'Esfera', title: 'Questão 4 — Esfera', goal: 'Em quanto tempo a esfera meio cheia fica vazia?',
+  content: q4, hUnit: 'm', speeds: [100, 500, 1000, 2000], speed0: 500,
+  params: [], marks: [],
+  makeTanks() {
+    return [{ name: 'Esfera', cls: 'w', color: C.water, ink: C.waterInk, ...sim.q4 }];
+  },
+  // h mostrado: o da simulação, ou o do slider/animação enquanto se explora o triângulo
+  hView(st) { return this.explore ?? Math.max(st.tanks[0]?.h ?? 0, 0); },
+  cards: [
+    { label: 'h atual', unit: 'm', val: (tk, st) => fmt(esfera.hView(st), 3) },
+    { label: 'Área da superfície A(h)', unit: 'm²', val: (tk, st) => fmt(area4(esfera.hView(st)), 3) },
+    { label: 'Tempo decorrido', unit: 's', val: (tk, st) => fmt(st.t, 1) },
+    { label: 'Esvazia em', duration: true, wide: true, minLabel: 'h min s', secs: tk => tk.tl.tEmpty,
+      mark: tk => tk.emptyAt != null ? ' ✓' : '' },
+  ],
+  axes: { x: { from: 0, to: 12000, step: 3000 }, y: { from: 0, to: 2.2, step: 0.5 }, xLabel: 't (s)', yLabel: 'h (m)' },
+  camera: { dist: 100, elev: 16, target: [0, 4, 0] },
+
+  build() {
+    const floorY = -11, base = floorY + 5, Rs = R4 * S4, yc = base + Rs, Rg = Rs + 0.15, ringY = base + 1.5;
+    Object.assign(this, { base, yc, explore: null, anim: null, showPy: true });
+    world.add(makeIsland(40, 3, floorY));
+    const wood = new THREE.MeshStandardMaterial({ color: C.table, roughness: 0.7, envMapIntensity: 0.35 });
+    // suporte: anel onde a esfera apoia e quatro pés; bacia no chão para o jato
+    const ringR = Math.sqrt(Rs * Rs - (yc - ringY) ** 2) - 0.3;
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(ringR, 0.45, 12, 72), wood);
+    ring.rotation.x = Math.PI / 2; ring.position.y = ringY; ring.castShadow = true; world.add(ring);
+    for (let i = 0; i < 4; i++) {
+      const a = Math.PI / 4 + i * Math.PI / 2, leg = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.55, ringY - floorY, 16), wood);
+      leg.position.set(ringR * Math.cos(a), (ringY + floorY) / 2, ringR * Math.sin(a)); leg.castShadow = true; world.add(leg);
+    }
+    const tray = new THREE.Mesh(new THREE.CylinderGeometry(3.2, 3.4, 0.6, 48), wood); tray.position.y = floorY + 0.3; tray.receiveShadow = true; world.add(tray);
+    const pool = new THREE.Mesh(new THREE.CircleGeometry(2.8, 48), new THREE.MeshStandardMaterial({ color: C.water, roughness: 0.2 }));
+    pool.rotation.x = -Math.PI / 2; pool.position.y = floorY + 0.61; world.add(pool);
+    // régua de 0 a 4 m (0 no fundo, onde fica o furo)
+    const ruler = makeRuler(-0.05, 4.1, 0.85, 'm', 0.5, 5, 700);
+    ruler.scale.set(S4, S4, 1); ruler.position.set(Rg + 5.5, base + ruler.position.y * S4, 0); world.add(ruler);
+
+    // esfera de vidro em duas passadas
+    const glassMat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.05, metalness: 0, transparent: true,
+      opacity: 0.26, clearcoat: 1, envMapIntensity: 1.6, depthWrite: false });
+    const glassBack = glassMat.clone(); glassBack.side = THREE.BackSide; glassBack.opacity = 0.13;
+    const gGeo = new THREE.SphereGeometry(Rg, 96, 64);
+    const back = new THREE.Mesh(gGeo, glassBack); back.position.y = yc; back.renderOrder = 0; world.add(back);
+    const glass = new THREE.Mesh(gGeo, glassMat); glass.position.y = yc; glass.renderOrder = 3; world.add(glass);
+    // equador discreto: marca a metade da capacidade
+    const eq = new THREE.Mesh(new THREE.TorusGeometry(Rg, 0.07, 8, 128), new THREE.MeshStandardMaterial({ color: 0xb9c2bc, roughness: 0.3, metalness: 0.2 }));
+    eq.rotation.x = Math.PI / 2; eq.position.y = yc; world.add(eq);
+
+    // água: esfera cortada pelo plano da superfície + disco da superfície (raio r = √(4h − h²))
+    const col = new THREE.Color(C.water), Rl = Rs - 0.1;
+    this.clip = new THREE.Plane(new THREE.Vector3(0, -1, 0), base);
+    this.liq = new THREE.Mesh(new THREE.SphereGeometry(Rl, 96, 64), new THREE.MeshPhysicalMaterial({ color: col, transparent: true, opacity: 0.72,
+      roughness: 0.15, emissive: col, emissiveIntensity: 0.06, clearcoat: 1, envMapIntensity: 0.8, depthWrite: false,
+      side: THREE.DoubleSide, clippingPlanes: [this.clip], clipShadows: true }));
+    this.liq.position.y = yc; this.liq.renderOrder = 1; this.liq.castShadow = true; world.add(this.liq);
+    this.surf = new THREE.Mesh(new THREE.CircleGeometry(1, 128), new THREE.MeshBasicMaterial({
+      color: col.clone().lerp(new THREE.Color(0xffffff), 0.55), transparent: true, opacity: 0.8, side: THREE.DoubleSide, depthWrite: false }));
+    this.surf.rotation.x = -Math.PI / 2; this.surf.renderOrder = 2; world.add(this.surf);
+    this.surfRim = new THREE.Mesh(new THREE.TorusGeometry(1, 0.012, 6, 128), new THREE.MeshBasicMaterial({ color: C.waterInk }));
+    this.surfRim.rotation.x = Math.PI / 2; this.surfRim.renderOrder = 2; world.add(this.surfRim);
+    this.Rl = Rl;
+    // furo no fundo (bocal maior que o 1 cm real, para aparecer)
+    const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.45, 0.6, 24), new THREE.MeshStandardMaterial({ color: C.ink, roughness: 0.4 }));
+    nozzle.position.y = base - 0.2; world.add(nozzle);
+
+    // triângulo de Pitágoras no corte (plano voltado para a câmera)
+    const pm = c => new THREE.MeshBasicMaterial({ color: c, depthTest: false, transparent: true });
+    const inkM = pm(C.ink), hlM = pm(C.hl), py = this.py = new THREE.Group(); py.position.y = yc; world.add(py);
+    const add = (m, parent = py) => { m.renderOrder = 7; parent.add(m); return m; };
+    const rod = (mat, r = 0.13) => { const g = new THREE.CylinderGeometry(r, r, 1, 12); g.translate(0, 0.5, 0); return add(new THREE.Mesh(g, mat)); };
+    this.legV = rod(inkM);                                   // de O até o centro do disco
+    this.legH = rod(hlM, 0.16); this.legH.rotation.z = -Math.PI / 2;   // do centro do disco até a borda (r)
+    this.hyp = add(new THREE.Group());                       // hipotenusa tracejada, sempre com 2 m
+    for (let i = 0; i < 12; i++) {
+      const d = add(new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.62, 10), inkM), this.hyp);
+      d.rotation.z = -Math.PI / 2; d.position.x = (i + 0.31) * Rs / 12 + 0.04;
+    }
+    this.dotO = add(new THREE.Mesh(new THREE.SphereGeometry(0.42, 16, 12), inkM));
+    this.dotD = add(new THREE.Mesh(new THREE.SphereGeometry(0.28, 16, 12), inkM));
+    this.dotE = add(new THREE.Mesh(new THREE.SphereGeometry(0.34, 16, 12), hlM));
+    this.sq = add(new THREE.Group());                        // marca de ângulo reto
+    const sqA = add(new THREE.Mesh(new THREE.BoxGeometry(1, 0.09, 0.09), inkM), this.sq), sqB = add(new THREE.Mesh(new THREE.BoxGeometry(0.09, 1, 0.09), inkM), this.sq);
+    sqA.position.set(0.5, -1, 0); sqB.position.set(1, -0.5, 0);
+
+    this.jet = new Jet(col.clone().lerp(new THREE.Color(C.waterInk), 0.6), new THREE.Vector3(0, -1, 0), new THREE.Vector3(0, base - 0.5, 0),
+      { g: 10 * S4, floorY: floorY + 0.6, size: 0.95, spread: 0.3 });
+    world.add(this.jet.points);
+
+    this.label = makeLabel();
+    this.lblHole = makeLabel(); this.lblHole.classList.add('note'); this.lblHole.textContent = 'furo: r = 1 cm';
+    const pyLbl = () => { const el = makeLabel(); el.classList.add('py'); return el; };
+    this.lO = pyLbl(); this.lO.textContent = 'O'; this.lV = pyLbl(); this.lR = pyLbl(); this.lH = pyLbl(); this.lH.textContent = '2 m';
+    this.lO.classList.add('l'); this.lV.classList.add('l'); this.lH.classList.add('r');
+    this.lEq = pyLbl(); this.lEq.classList.add('eq');
+    this.p = { O: new THREE.Vector3(), V: new THREE.Vector3(), R: new THREE.Vector3(), H: new THREE.Vector3(), Eq: new THREE.Vector3() };
+    this.labels = [
+      { el: this.label, pos: new THREE.Vector3(0, yc + Rs + 3.5, 0) },
+      { el: this.lblHole, pos: new THREE.Vector3(-6, base - 1.2, 0) },
+      { el: this.lO, pos: this.p.O }, { el: this.lV, pos: this.p.V }, { el: this.lR, pos: this.p.R }, { el: this.lH, pos: this.p.H },
+      { el: this.lEq, pos: this.p.Eq },
+    ];
+  },
+
+  update(st, dtReal) {
+    const now = performance.now(), tk = st.tanks[0];
+    if (st.running) { this.explore = null; this.anim = null; }
+    if (this.anim) {   // passo 2: h vai de onde está até 0,5, sobe até 3,5 e volta
+      const { t0, dur, keys } = this.anim, u = Math.min((now - t0) / dur, 1) * (keys.length - 1), i = Math.min(Math.floor(u), keys.length - 2);
+      const s = u - i, e = s * s * (3 - 2 * s);
+      this.explore = keys[i] + (keys[i + 1] - keys[i]) * e;
+      if (u >= keys.length - 1) { this.anim = null; this.explore = null; }
+    }
+    const h = this.hView(st), r = Math.sqrt(Math.max(4 * h - h * h, 0)), ys = this.base + h * S4;
+    // água
+    this.clip.constant = ys;
+    this.liq.visible = h > 1e-4;
+    const rs = Math.sqrt(Math.max(this.Rl ** 2 - (ys - this.yc) ** 2, 0));
+    this.surf.visible = this.surfRim.visible = rs > 0.05 && h > 1e-4;
+    this.surf.position.y = this.surfRim.position.y = ys + 0.01;
+    this.surf.scale.set(rs, rs, 1); this.surfRim.scale.set(rs, rs, 1);
+    this.jet.update(dtReal, st.t > 0 && tk.h > 1e-4 ? outflowSpeed(tk.h, 10) * S4 : 0, 450 * Math.sqrt(Math.max(tk.h, 0) / 2) + 120);
+    this.label.innerHTML = `${dotHtml(tk)}Esfera · h = ${fmt(h, 2)} m`;
+    this.lblHole.style.opacity = this.showPy ? 0 : 1;
+
+    // triângulo: O no centro, D = centro do disco, E = borda do disco
+    const on = this.showPy;
+    this.py.visible = on;
+    const dy = (h - R4) * S4, rx = r * S4, sgn = Math.sign(dy) || 1;
+    this.py.rotation.y = Math.atan2(camera.position.x - controls.target.x, camera.position.z - controls.target.z);
+    this.legV.visible = Math.abs(dy) > 0.05; this.legV.scale.y = Math.abs(dy) || 1; this.legV.rotation.z = dy < 0 ? Math.PI : 0;
+    this.legH.visible = rx > 0.05; this.legH.scale.y = rx || 1; this.legH.position.y = dy;
+    this.hyp.rotation.z = Math.atan2(dy, rx);
+    this.dotD.position.y = dy; this.dotE.position.set(rx, dy, 0);
+    this.sq.visible = this.legV.visible && this.legH.visible;
+    this.sq.position.y = dy; this.sq.scale.set(Math.min(0.9, rx * 0.4), Math.min(0.9, Math.abs(dy) * 0.4) * sgn, 1);
+    // etiquetas (posições locais convertidas para o mundo)
+    this.py.updateMatrixWorld();
+    const W = (v, x, y) => v.set(x, y, 0).applyMatrix4(this.py.matrixWorld);
+    // O e |2 − h| à esquerda do cateto vertical; r do lado oposto a O; "2 m" para fora da hipotenusa
+    W(this.p.O, -0.4, 0); W(this.p.V, -0.4, dy / 2);
+    W(this.p.R, rx / 2, dy + (dy < 0 ? -0.4 : 0.4));
+    this.lR.classList.toggle('dn', dy < 0);
+    W(this.p.H, rx / 2 + 0.5, dy / 2);
+    this.lH.classList.toggle('up', dy < 0); this.lH.classList.toggle('dn', dy >= 0);
+    W(this.p.Eq, 0, R4 * S4 + 8.2);
+    this.lV.textContent = `|2 − h| = ${fmt(Math.abs(R4 - h), 2)} m`;
+    this.lR.textContent = `r = ${fmt(r, 2)} m`;
+    this.lEq.textContent = `r² = 4h − h² = ${fmt(r * r, 2)} m²`;
+    [this.lO, this.lV, this.lR, this.lH, this.lEq].forEach(el => { el.style.opacity = on ? 1 : 0; });
+    this.lV.style.opacity = on && this.legV.visible ? 1 : 0;
+    // slider acompanha o h mostrado (sem brigar com quem está arrastando)
+    if (this.hIn && document.activeElement !== this.hIn) { this.hIn.value = h; paintRange(this.hIn); }
+    if (this.hOut) this.hOut.textContent = `${fmt(h, 2)} m`;
+    this.ctl?.querySelector('.exNote')?.classList.toggle('on', this.explore != null && !this.anim);
+  },
+  resetVisuals() { this.jet?.clear(); this.explore = null; this.anim = null; },
+
+  // ações dos passos: { type: 'scene', pythagoras: true|false, animateH: [de, até], duration }
+  act(a) {
+    if (a.pythagoras != null) this.setPy(a.pythagoras);
+    if (a.animateH) {
+      if (st.running) { st.running = false; syncPlay(); }
+      const h0 = this.hView(st);
+      this.anim = { t0: performance.now(), dur: a.duration || 9000, keys: [h0, a.animateH[0], a.animateH[1], h0] };
+    }
+  },
+  setPy(on) { this.showPy = on; this.ctl?.querySelector('[data-ctl=py]').classList.toggle('on', on); },
+  buildCtl(el) {
+    el.classList.add('side');
+    el.innerHTML = `<button class="pill on" data-ctl="py">Mostrar Pitágoras</button>
+      <div class="ctlCard"><label>Explorar h<output></output></label>
+        <input type="range" min="0" max="4" step="0.01" value="2">
+        <span class="exNote">explorando · <kbd>espaço</kbd> volta à simulação</span></div>`;
+    el.querySelector('[data-ctl=py]').onclick = e => { e.currentTarget.blur(); this.setPy(!this.showPy); };
+    this.hIn = el.querySelector('input'); this.hOut = el.querySelector('output');
+    this.hIn.oninput = () => {
+      if (st.running) { st.running = false; syncPlay(); }
+      this.anim = null; this.explore = +this.hIn.value; paintRange(this.hIn);
+    };
+    this.hIn.onchange = () => this.hIn.blur();
+    this.ctl = el; this.setPy(this.showPy);
+  },
+
+  formula(st) {
+    const h = this.hView(st), q = 4 * h - h * h, H = HL(tx(h, 2));
+    const dh = q > 1e-9 ? HL(tx(-C4 * Math.sqrt(h) / q, 6)) : HL('\\text{—}');
+    return [
+      { tex: `r^2 = 2^2 - (2 - ${H})^2 = 4h - h^2 = ${HL(tx(Math.max(q, 0), 3))}\\ \\text{m}^2` },
+      { tex: `A(h) = \\pi\\,(4h - h^2) = ${HL(tx(area4(h), 3))}\\ \\text{m}^2` },
+      { tex: `\\dfrac{dh}{dt} = \\dfrac{-0{,}0001\\sqrt{20h}}{4h - h^2} = ${dh}\\ \\text{m/s}` },
+    ];
+  },
+
+  // h × t: curva exata t(h) = T(h0) − T(h), ponto atual e o instante em que esvazia
+  plot(g, { px, py, fs, H, Bp, Tp }) {
+    const tk = st.tanks[0], T = tEmpty4(tk.h0);
+    g.save(); g.strokeStyle = C.waterInk; g.lineWidth = Math.max(2.5, fs * 0.2); g.lineJoin = 'round'; g.beginPath();
+    for (let i = 0; i <= 400; i++) { const h = tk.h0 * (1 - i / 400) ** 1.5, t = T - tEmpty4(h); i ? g.lineTo(px(t), py(h)) : g.moveTo(px(t), py(h)); }
+    g.lineTo(px(12000), py(0)); g.stroke(); g.restore();
+    g.save(); g.strokeStyle = C.hl; g.lineWidth = 2; g.setLineDash([fs * 0.5, fs * 0.4]);
+    g.beginPath(); g.moveTo(px(T), H - Bp); g.lineTo(px(T), Tp); g.stroke(); g.restore();
+    const txt = fmtDur(T);
+    g.font = `700 ${fs}px Inter, system-ui, sans-serif`;
+    const tw = g.measureText(txt).width, lx = px(T) - fs * 0.6 - tw, ly = py(1.6);
+    g.fillStyle = 'rgba(255,255,255,.92)'; g.beginPath(); g.roundRect(lx - 6, ly - fs * 0.75, tw + 12, fs * 1.5, 7); g.fill();
+    g.fillStyle = C.hl; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText(txt, lx, ly);
+    g.beginPath(); g.arc(px(Math.min(st.t, 12000)), py(Math.max(tk.h, 0)), fs * 0.42, 0, 7); g.fillStyle = tk.color; g.fill();
+    g.lineWidth = 2.5; g.strokeStyle = tk.ink; g.stroke();
+  },
+
+  ui(st) {
+    const b = $('#banner'), tk = st.tanks[0];
+    if (tk.emptyAt != null) {
+      b.innerHTML = `<span class="ttl">Esfera vazia</span> em <span class="w">${fmtDur(tk.emptyAt)}</span> <span class="sm">(${fmt(tk.emptyAt, 2)} s)</span>`;
+      b.classList.remove('hide');
+    } else b.classList.add('hide');
+  },
+};
+
+const SCENES = [
+  torricelli,
+  cilindro,
+  garrafa,
+  incendio,
+  esfera,
+];
+
+// ---------- estado e simulação ----------
+let SPEEDS = [1, 10, 100, 1000];   // cada cena pode definir as suas (sc.speeds) e a padrão (sc.speed0)
+const st = { t: 0, running: false, speed: 1, done: false, tanks: [], series: [], tMax: 1, yMax: 1, firstEmpty: null, stage: 1, stageAt: 0 };
+let SC = null, P = {}, selected = null;   // selected: índice do tanque 3D selecionado
+
+// etapas de revelação do gráfico (1 Modelos · 2 Modelos × medições)
+function setStage(n) {
+  n = Math.max(1, Math.min(SC?.stages || 1, n));
+  if (st.stage !== n) st.stageAt = performance.now();
+  st.stage = n;
+  document.querySelectorAll('.graphStage button').forEach(b => b.classList.toggle('on', +b.dataset.s === n));
+  const name = SC?.stageName?.(n) || 'Gráfico h × t', cap = SC?.caption?.(n);
+  $('#graphName').textContent = $('#graphNameBig').textContent = name;
+  document.querySelectorAll('.graphCap').forEach(el => {
+    el.classList.toggle('on', !!cap);
+    if (cap && el.dataset.src !== cap.tex) {
+      el.dataset.src = cap.tex; el.innerHTML = `<div class="ct">${cap.title}</div><div class="cf"></div>`;
+      katex.render(cap.tex, el.querySelector('.cf'), { throwOnError: false });
+    }
+  });
+}
+
+function loadScene(sc) {
+  if (deck) closeDeck(false);
+  if (sc === SC) return;
+  const first = !SC;
+  const apply = () => {
+    SC = sc; disposeWorld();
+    P = Object.fromEntries(sc.params.map(p => [p.key, p.value]));
+    $('#sceneTitle').textContent = sc.title; $('#sceneGoal').textContent = sc.goal;
+    $('#formulaLines').innerHTML = ''; $('#kCompare').innerHTML = ''; selected = null;
+    $('#kSec').style.display = sc.side ? '' : 'none';
+    document.querySelectorAll('.graphStage').forEach(x => x.style.display = sc.stages ? '' : 'none');
+    view.classList.toggle('wip', !!sc.wip); $('#paneSim').classList.toggle('wip', !!sc.wip);
+    toggleBig(false); renderContent(sc); renderSlidesPane(sc);
+    $('#sideTabs [data-t="video"]').hidden = !hasVideo();
+    if (sideTab === 'video' && !hasVideo()) setSideTab('sim');
+    if (sideTab === 'apre') setTimeout(runFirstAction, 0);
+    buildTabs(); buildSliders(); buildCards(); buildSpeeds();
+    $('[data-sec="parametros"]').style.display = sc.params.length ? '' : 'none';
+    sc.build(sc.makeTanks(P));
+    view.classList.toggle('static', !!sc.static);
+    $('#graphBox').style.display = sc.noGraph ? 'none' : '';
+    const ctl = $('#sceneCtl'); ctl.innerHTML = ''; ctl.className = 'float'; ctl.hidden = !sc.buildCtl; sc.buildCtl?.(ctl);
+    const { dist, elev, target } = sc.camera, e = elev * Math.PI / 180;
+    controls.target.set(...target);
+    camera.position.set(target[0], target[1] + dist * Math.sin(e), target[2] + dist * Math.cos(e)); controls.update();
+    reset();
+    view.classList.remove('fade'); $('#side').classList.remove('fade');
+  };
+  if (first) return apply();
+  view.classList.add('fade'); $('#side').classList.add('fade');
+  setTimeout(apply, 250);
+}
+
+function reset() {
+  st.t = 0; st.running = false; st.done = false; st.firstEmpty = null;
+  // a EDO é resolvida aqui, uma vez: a animação só lê h(t) da tabela (src/physics/playback.js)
+  st.tanks = SC.makeTanks(P).map(tk => ({ ...tk, h: tk.h0, cross: {}, emptyAt: null,
+    tl: SC.static ? null : timeline(tk.f, tk.h0, tk) }));
+  st.series = st.tanks.map(tk => [[0, tk.h0]]);
+  const tEnd = st.tanks.length ? Math.max(...st.tanks.map(tk => tk.tl?.tEmpty ?? SC.tEnd ?? 1)) : 1;
+  st.tMax = tEnd * 1.04; st.yMax = st.tanks.length ? Math.max(...st.tanks.map(tk => tk.h0)) : 1;
+  st.recStep = st.tMax / 1500;
+  SC.resetVisuals?.();
+  setStage(1);
+  $('#question').classList.toggle('hide', !SC.intro);
+  syncPlay(); updateUI();
+}
+
+// avança o relógio da simulação; os níveis vêm da tabela h(t), então não dependem do tamanho do quadro
+function step(dt) {
+  if (st.done || SC.static) return;
+  const stopAt = SC.pauseAt?.find(p => p > st.t + 1e-9) ?? SC.tEnd ?? Infinity, t0 = st.t;
+  st.t = advanceRun(st.tanks, st.t, dt, { marks: SC.marks, stopAt });
+  if (!st.firstEmpty) st.firstEmpty = st.tanks.filter(tk => tk.emptyAt != null).sort((a, b) => a.emptyAt - b.emptyAt)[0] ?? null;
+  st.tanks.forEach((tk, i) => {   // pontos da trajetória a cada recStep, lidos da tabela
+    const s = st.series[i];
+    for (let t = s[s.length - 1][0] + st.recStep; t < st.t; t += st.recStep) s.push([t, tk.tl.hAt(t)]);
+    if (st.t > t0) s.push([st.t, tk.h]);
+  });
+  if (st.tanks.every(tk => tk.emptyAt != null)) { st.done = true; st.running = false; syncPlay(); }
+  else if (st.t >= stopAt - 1e-9) {        // chegou a um instante de pausa (ou ao fim do intervalo da cena)
+    st.t = stopAt; st.running = false;
+    if (stopAt === SC.tEnd) st.done = true;
+    syncPlay();
+  }
+}
+
+// ---------- UI ----------
+function buildTabs() {
+  const nav = $('#tabs'); nav.innerHTML = '';
+  SCENES.forEach(sc => {
+    const b = document.createElement('button'); b.className = 'tab' + (sc === SC ? ' on' : '') + (sc.wip ? ' wip' : '');
+    b.innerHTML = `<b>${sc.key}</b>${sc.tab}`; b.title = sc.title;
+    b.onclick = () => { b.blur(); loadScene(sc); }; nav.appendChild(b);
+  });
+}
+function paintRange(inp) { inp.style.setProperty('--p', (100 * (inp.value - inp.min) / (inp.max - inp.min)) + '%'); }
+// muda um parâmetro sem recriar a cena (ex.: animar Δt) e atualiza o slider correspondente
+const sliderRefs = {};
+function setParam(key, v) { P[key] = v; const r = sliderRefs[key]; if (r) { r.inp.value = v; r.show(); } }
+function buildSliders() {
+  const box = $('#sliders'); box.innerHTML = '';
+  SC.params.forEach(p => {
+    const w = document.createElement('div'); w.className = 'sl';
+    w.innerHTML = `<label>${p.label}<output></output></label>
+      <input type="range" min="${p.min}" max="${p.max}" step="${p.step}" value="${P[p.key]}">`;
+    const inp = w.querySelector('input'), out = w.querySelector('output');
+    const show = () => { out.textContent = `${fmt(P[p.key], p.d)} ${p.unit}`; paintRange(inp); };
+    inp.oninput = () => { P[p.key] = +inp.value; show(); reset(); };
+    sliderRefs[p.key] = { inp, show };
+    show(); box.appendChild(w);
+  });
+  (SC.paramButtons || []).forEach(pb => {
+    const b = document.createElement('button'); b.className = 'pill'; b.textContent = pb.label;
+    b.onclick = () => { b.blur(); Object.assign(P, pb.set); buildSliders(); reset(); };
+    box.appendChild(b);
+  });
+}
+let durUnit = 's';   // unidade do cartão de duração ('s' ou 'min'); sobrevive a reset e troca de etapa
+function buildCards() {
+  $('#cards').innerHTML = SC.cards.map(c => `<div class="mc${c.wide ? ' wide' : ''}"><div class="lab"><span>${c.label}</span>${c.duration
+    ? `<div class="seg tiny durUnit"><button data-u="s">s</button><button data-u="min">${c.minLabel || 'min'}</button></div>` : ''}</div><div class="vals"></div></div>`).join('');
+  $('#cards').querySelectorAll('.durUnit').forEach(seg => seg.onclick = e => {
+    const b = e.target.closest('button'); if (!b) return; b.blur();
+    durUnit = b.dataset.u; pref.set('durUnit', durUnit); renderCards();
+  });
+}
+const durHtml = sec => durUnit === 'min'
+  ? durParts(sec).map(([v, u]) => `${v}<span class="u">${u}</span>`).join(' ')
+  : `${fmt(sec, 1)}<span class="u">s</span>`;
+function buildSpeeds() {
+  const box = $('#speeds'); box.innerHTML = '';
+  SPEEDS = SC?.speeds || [1, 10, 100, 1000];
+  st.speed = SC?.speed0 ?? SPEEDS[0];
+  SPEEDS.forEach(s => {
+    const b = document.createElement('button'); b.textContent = '×' + s.toLocaleString('pt-BR');
+    b.onclick = () => { st.speed = s; b.blur(); syncSpeeds(); }; box.appendChild(b);
+  });
+  syncSpeeds();
+}
+function setSpeed(s) { st.speed = s; syncSpeeds(); }
+function syncSpeeds() { [...$('#speeds').children].forEach((b, i) => b.classList.toggle('on', SPEEDS[i] === st.speed)); }
+function syncPlay() {
+  $('#btnPlay').textContent = st.running ? '❚❚ Pausar' : (st.done ? '↻ De novo' : (st.t > 0 ? '▶ Continuar' : '▶ Iniciar'));
+}
+function togglePlay() {
+  if (SC.wip || SC.static) return;
+  if (st.done) reset();
+  st.running = !st.running;
+  if (st.running) $('#question').classList.add('hide');
+  syncPlay();
+}
+
+function renderFormula() {
+  const box = $('#formulaLines'), items = SC.formula(st);
+  if (box.children.length === 0) {
+    box.innerHTML = items.map(it => it.head
+      ? `<div class="head" style="color:${it.head.ink}">${dotHtml(it.head)}${it.head.name}</div><div class="ln"></div>`
+      : `<div class="ln${it.main ? ' main' : ''}"></div>`).join('');
+  }
+  const lines = box.querySelectorAll('.ln');
+  items.forEach((it, i) => {
+    const el = lines[i];
+    if (el.dataset.src === it.tex) return; el.dataset.src = it.tex;
+    katex.render(it.tex, el, { throwOnError: false, displayMode: false });
+    fitKatex(el);
+  });
+}
+
+// reduz a fonte de uma linha de KaTeX até caber na largura disponível
+function fitKatex(el) {
+  el.style.fontSize = '';
+  const k = el.querySelector('.katex'); if (!k || !el.clientWidth) return;
+  const w = k.getBoundingClientRect().width, max = el.clientWidth;
+  if (w > max) el.style.fontSize = (parseFloat(getComputedStyle(el).fontSize) * max / w * 0.98) + 'px';
+}
+
+// ---------- abas da barra lateral: Simulação · Enunciado · Apresentação ----------
+let sideTab = 'sim', revealed = 1;
+const PANES = { sim: '#paneSim', enun: '#paneEnun', apre: '#paneApre', slides: '#paneSlides', video: '#paneVideo' };
+function setSideTab(t) {
+  if (!PANES[t]) return;
+  if (t === 'video' && !hasVideo()) t = 'sim';
+  const prev = sideTab, changed = t !== prev; sideTab = t;
+  pref.set('sideTab', t === 'video' ? prev : t);   // o vídeo nunca reabre sozinho ao recarregar
+  Object.entries(PANES).forEach(([k, sel]) => { $(sel).hidden = k !== t; });
+  document.querySelectorAll('#sideTabs button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
+  if (changed) $(PANES[t]).animate([{ opacity: 0 }, { opacity: 1 }], { duration: 220, easing: 'ease-out' });
+  if (changed && t === 'apre') runFirstAction();
+  if (t === 'video') openDeck({ video: true });
+  else if (prev === 'video' && deck?.video) closeDeck();
+  refitFormulas(); fitSteps();
+}
+
+// ---------- slides e vídeo no palco ----------
+const slideSrc = n => `${SLIDES.dir}/${String(n).padStart(2, '0')}.${SLIDES.ext}`;
+const slideTitle = n => SLIDES.titles[n] || `Slide ${n}`;
+const sceneOfSlide = n => Object.keys(SLIDES.scenes).find(k => SLIDES.scenes[k].includes(n));
+const hasVideo = () => !!SC && String(SLIDES.video?.scene) === SC.key;
+const fullDeck = () => [...new Set([SLIDES.cover, ...Object.values(SLIDES.scenes).flat(), SLIDES.results])]
+  .filter(n => n != null).sort((a, b) => a - b);
+let deck = null;   // o que está aberto no palco: { list, i, full, video, resume }
+
+function openDeck(opts) {
+  const resume = deck ? deck.resume : st.running;   // a simulação pausa por baixo e retoma ao fechar
+  if (st.running) { st.running = false; syncPlay(); }
+  toggleBig(false);
+  if (!deck && layout === 'both') { savedLayout = layout; setLayout('stage', false); }   // slide aberto usa a largura toda
+  deck = { list: [], i: 0, full: false, video: false, ...opts, resume };
+  renderDeck();
+}
+function closeDeck(resume = true) {
+  if (!deck) return;
+  const r = deck.resume && resume; deck = null;
+  $('#deck').classList.add('hide'); $('#deckMedia video')?.pause();
+  setTimeout(() => { if (!deck) $('#deckMedia').innerHTML = ''; }, 260);
+  restoreLayout(); setZoom(1); bumpIdle();
+  if (r && !st.done && !SC.static && !SC.wip) { st.running = true; syncPlay(); }
+  syncThumbs();
+}
+function renderDeck() {
+  const media = $('#deckMedia'), v = deck.video;
+  $('#deck').classList.remove('hide');
+  $('#deckPrev').hidden = $('#deckNext').hidden = $('#deckCount').hidden = v;
+  if (v) {
+    media.innerHTML = `<div class="frame"><video src="${SLIDES.video.src}" controls preload="metadata" playsinline></video></div>`;
+    $('#deckCap').textContent = SLIDES.video.caption; $('#deckOpen').hidden = true;
+  } else {
+    const n = deck.list[deck.i];
+    media.innerHTML = `<div class="frame"><img src="${slideSrc(n)}" alt="Slide ${n}: ${slideTitle(n)}" decoding="async"></div>`;
+    $('#deckCap').textContent = `Slide ${n} · ${slideTitle(n)}`;
+    $('#deckCount').textContent = `${deck.i + 1} / ${deck.list.length}`;
+    $('#deckPrev').disabled = deck.i === 0; $('#deckNext').disabled = deck.i === deck.list.length - 1;
+    $('#deckOpen').hidden = !(deck.full && sceneOfSlide(n) != null);
+    const nx = deck.list[deck.i + 1]; if (nx) new Image().src = slideSrc(nx);   // pré-carrega só o próximo
+  }
+  setZoom(1); bumpIdle(); syncThumbs();
+}
+
+// zoom no slide: clique amplia o ponto sob o mouse (e o mouse passeia pela imagem); + e − ajustam
+let zoom = 1;
+function setZoom(z, ev) {
+  zoom = Math.max(1, Math.min(3, z));
+  const img = $('#deckMedia img'); $('#deckMedia').classList.toggle('zoomed', zoom > 1);
+  if (!img) return;
+  if (ev) panZoom(ev);
+  img.style.transform = zoom > 1 ? `scale(${zoom})` : '';
+}
+function panZoom(ev) {
+  const img = $('#deckMedia img'); if (!img || zoom <= 1) return;
+  const r = img.getBoundingClientRect(), fr = img.parentElement.getBoundingClientRect();
+  const x = (ev.clientX - fr.left) / fr.width * 100, y = (ev.clientY - fr.top) / fr.height * 100;
+  img.style.transformOrigin = `${Math.max(0, Math.min(100, x))}% ${Math.max(0, Math.min(100, y))}%`;
+}
+$('#deckMedia').addEventListener('click', e => { if (e.target.matches('img')) setZoom(zoom > 1 ? 1 : 2, e); });
+$('#deckMedia').addEventListener('mousemove', panZoom);
+function stepDeck(d) {
+  if (!deck || deck.video) return;
+  const i = Math.max(0, Math.min(deck.list.length - 1, deck.i + d));
+  if (i !== deck.i) { deck.i = i; renderDeck(); }
+}
+// ---------- layout (ambos · só palco · só painel) e tela cheia ----------
+let layout = 'both', savedLayout = null;   // savedLayout: layout a restaurar depois do slide em tela cheia
+function setLayout(l, persist = true) {
+  layout = l; if (persist) pref.set('layout', l);
+  document.body.classList.toggle('only-stage', l === 'stage');
+  document.body.classList.toggle('only-panel', l === 'panel');
+  document.querySelectorAll('#layoutSeg button').forEach(b => b.classList.toggle('on', b.dataset.l === l));
+  refitFormulas(); fitSteps();
+}
+function restoreLayout() { if (savedLayout) { setLayout(savedLayout); savedLayout = null; } }
+const isFs = () => document.body.classList.contains('fs');
+function setFs(on) {
+  document.body.classList.toggle('fs', on); $('#btnFs').classList.toggle('on', on);
+  if (on) bumpIdle(); else { if (!deck) restoreLayout(); bumpIdle(); }
+}
+// tela cheia do navegador; se ele recusar, o app ocupa a janela inteira do mesmo jeito
+function toggleFullscreen() {
+  if (isFs()) { if (document.fullscreenElement) document.exitFullscreen().catch(() => setFs(false)); else setFs(false); return; }
+  if (deck && layout !== 'stage') { savedLayout = layout; setLayout('stage', false); }   // slide aberto: ocupa a tela toda
+  const req = document.documentElement.requestFullscreen?.();
+  if (req) req.then(() => setFs(true), () => setFs(true)); else setFs(true);
+}
+document.addEventListener('fullscreenchange', () => setFs(!!document.fullscreenElement));
+let idleT;
+function bumpIdle() {
+  document.body.classList.remove('idle'); clearTimeout(idleT);
+  if (isFs() || deck) idleT = setTimeout(() => document.body.classList.add('idle'), 2500);
+}
+addEventListener('mousemove', bumpIdle);
+
+function renderSlidesPane(sc) {
+  const list = SLIDES.scenes[sc.key] || [];
+  $('#paneSlides').innerHTML = list.length
+    ? `<div class="thumbs">${list.map((n, i) => `<button class="thumb" data-i="${i}" data-n="${n}">
+        <img src="${slideSrc(n)}" loading="lazy" decoding="async" alt=""><span class="tn">Slide ${n}</span><span class="tt">${slideTitle(n)}</span></button>`).join('')}</div>
+       <p class="wipTxt" style="font-size:1rem">Clique para abrir no palco · <kbd>←</kbd><kbd>→</kbd> navegam · <kbd>Esc</kbd> volta · <kbd>F</kbd> tela cheia</p>`
+    : '<p class="wipTxt">Sem slides para esta cena.</p>';
+  syncThumbs();
+}
+function syncThumbs() {
+  const n = deck && !deck.video ? deck.list[deck.i] : null;
+  $('#paneSlides').querySelectorAll('.thumb').forEach(b => b.classList.toggle('on', +b.dataset.n === n));
+}
+
+// fórmulas no texto dos enunciados: $…$ no meio da frase, $$…$$ em destaque (KaTeX)
+const mathHtml = html => html.replace(/\$\$([\s\S]+?)\$\$|\$([^$]+?)\$/g,
+  (_, d, i) => katex.renderToString(d ?? i, { throwOnError: false, displayMode: d != null }));
+
+function renderContent(sc) {
+  const c = sc.content || {}, passos = c.passos || [];
+  $('#paneEnun').innerHTML = c.enunciado
+    ? `<div class="enun">${mathHtml(c.enunciado)}</div>${c.nota ? `<div class="nota">${mathHtml(c.nota)}</div>` : ''}`
+    : '<p class="wipTxt">Enunciado em construção.</p>';
+  $('#steps').innerHTML = passos.length ? passos.map((p, i) => {
+    const last = i === passos.length - 1;
+    return `<article class="step${last ? ' result' : ''}"><div class="sn">${last ? 'Resultado' : 'Passo ' + (i + 1)}</div>
+      <h4>${p.titulo}</h4>${(p.tex || []).map(() => '<div class="tx"></div>').join('')}${p.texto ? `<p>${p.texto}</p>` : ''}${p.nota ? `<p class="snote">${p.nota}</p>` : ''}</article>`;
+  }).join('') : '<p class="wipTxt">Apresentação em construção.</p>';
+  $('#steps').querySelectorAll('.step').forEach((el, i) =>
+    el.querySelectorAll('.tx').forEach((t, j) => katex.render(passos[i].tex[j], t, { throwOnError: false, displayMode: false })));
+  revealed = Math.min(1, passos.length);
+  showSteps(false);
+}
+
+function showSteps(animate) {
+  const els = [...$('#steps').querySelectorAll('.step')], n = els.length;
+  els.forEach((el, i) => { el.hidden = i >= revealed; });
+  const cur = els[revealed - 1];
+  if (animate && cur) { cur.classList.remove('in'); void cur.offsetWidth; cur.classList.add('in'); cur.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+  $('#stepCount').textContent = n ? `${revealed} / ${n}` : '';
+  $('#btnPrev').disabled = revealed <= 1; $('#btnNext').disabled = revealed >= n;
+  fitSteps();
+}
+function fitSteps() { $('#steps').querySelectorAll('.step:not([hidden]) .tx').forEach(fitKatex); }
+function nextStep() {
+  const passos = SC.content?.passos || [];
+  if (revealed >= passos.length) return;
+  revealed++; showSteps(true); runAction(passos[revealed - 1].action);
+}
+// o 1º passo já começa visível: a ação dele roda ao abrir a Apresentação (ou ao trocar de cena com ela aberta)
+function runFirstAction() { if (revealed === 1 && SC) runAction(SC.content?.passos?.[0]?.action); }
+function prevStep() { if (revealed > 1) { revealed--; showSteps(false); } }
+
+// ações declaradas nos passos (scenes/qN.js)
+function runAction(a) {
+  if (!a || SC.wip) return;
+  if (a.type === 'graphStage') { setStage(a.stage); toggleBig(true); }
+  else if (a.type === 'seek') seekTo(a.t);
+  else if (a.type === 'highlight') SC.highlight?.(a.target);
+  else if (a.type === 'scene') SC.act?.(a);
+  else if (a.type === 'run') {
+    if (a.params) { Object.assign(P, a.params); buildSliders(); }
+    reset(); if (a.speed) setSpeed(a.speed); togglePlay();
+  }
+}
+function seekTo(t) {
+  reset(); $('#question').classList.add('hide');
+  step(t); syncPlay(); updateUI();
+}
+
+function renderCards() {
+  const cards = $('#cards').children;
+  SC.cards.forEach((c, i) => {
+    const el = cards[i];
+    el.querySelectorAll('.durUnit button').forEach(b => b.classList.toggle('on', b.dataset.u === durUnit));
+    el.querySelector('.vals').innerHTML = st.tanks.map(tk => {
+      const body = c.duration ? durHtml(c.secs(tk, st)) : `${c.val(tk, st)}<span class="u">${c.unit}</span>`;
+      return `<div class="row">${dotHtml(tk)}${body}<span class="u">${c.mark ? c.mark(tk, st) : ''}</span></div>`;
+    }).join('');
+  });
+}
+
+function updateUI() {
+  $('#clock').textContent = `t = ${fmtClock(st.t)} s`;
+  renderFormula(); renderCards(); SC.ui?.(st); SC.side?.($('#kCompare'));
+}
+
+// ---------- gráfico ----------
+function niceStep(max, n) { const raw = max / n, p = 10 ** Math.floor(Math.log10(raw)), m = raw / p; return (m < 1.5 ? 1 : m < 3 ? 2 : m < 7 ? 5 : 10) * p; }
+const rootPx = () => parseFloat(getComputedStyle(document.documentElement).fontSize);
+function drawGraph(gc, big = false) {
+  const dpr = Math.min(devicePixelRatio, 2), W = gc.clientWidth, H = gc.clientHeight;
+  if (!W || !H) return;
+  if (gc.width !== Math.round(W * dpr) || gc.height !== Math.round(H * dpr)) { gc.width = Math.round(W * dpr); gc.height = Math.round(H * dpr); }
+  const g = gc.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
+  // fonte acompanha o tamanho do gráfico (maior no modo ampliado ou com o painel largo)
+  const fs = Math.round(Math.max(12, rootPx() * (big ? 1.35 : 0.95), Math.min(W / 42, rootPx() * 1.6)));
+  let Lp = fs * 3.2, Rp = fs; const Tp = fs * (SC.plot ? 0.9 : 2.4), Bp = fs * 2.8;
+  // eixos: definidos pela cena (podem depender da etapa) ou automáticos a partir da simulação
+  let ax = typeof SC.axes === 'function' ? SC.axes(st.stage) : SC.axes;
+  if (!ax) {
+    const xs = niceStep(st.tMax, big ? 10 : 5), ys = niceStep(st.yMax, big ? 8 : 5);
+    ax = { x: { from: 0, to: Math.ceil(st.tMax / xs) * xs, step: xs }, y: { from: 0, to: Math.ceil(st.yMax / ys) * ys, step: ys },
+      xLabel: 't (s)', yLabel: `h (${SC.hUnit})` };
+  }
+  const X = ax.x, Yy = ax.y;
+  const px = v => Lp + (W - Lp - Rp) * (v - X.from) / (X.to - X.from);
+  const py = v => H - Bp - (H - Bp - Tp) * (v - Yy.from) / (Yy.to - Yy.from);
+  const ticks = A => { const lo = Math.min(A.from, A.to), n = Math.floor(Math.abs(A.to - A.from) / A.step + 1e-6), out = [];
+    for (let i = 0; i <= n; i++) out.push(lo + i * A.step); return out; };
+  const lab = (v, step) => fmt(v, step < 1 ? 1 : 0).replace('-', '−');
+  // margem esquerda cabe os rótulos do eixo y (ex.: "−1,6") mais o título girado
+  g.font = `500 ${fs}px Inter, system-ui, sans-serif`;
+  Lp = Math.max(Lp, Math.max(...ticks(Yy).map(y => g.measureText(lab(y, Yy.step)).width)) + fs * 2.4);
+  // margem direita cabe metade do último rótulo do eixo x (ex.: "12.000")
+  Rp = Math.max(Rp, g.measureText(lab(ticks(X).at(-1), X.step)).width / 2 + 4);
+
+  g.font = `500 ${fs}px Inter, system-ui, sans-serif`; g.lineWidth = 1;
+  g.fillStyle = C.muted; g.strokeStyle = C.grid;
+  g.textAlign = 'center'; g.textBaseline = 'top';
+  ticks(X).forEach(x => { g.beginPath(); g.moveTo(px(x), Tp); g.lineTo(px(x), H - Bp); g.stroke(); g.fillText(lab(x, X.step), px(x), H - Bp + 6); });
+  g.textAlign = 'right'; g.textBaseline = 'middle';
+  ticks(Yy).forEach(y => { g.beginPath(); g.moveTo(Lp, py(y)); g.lineTo(W - Rp, py(y)); g.stroke(); g.fillText(lab(y, Yy.step), Lp - 8, py(y)); });
+  g.strokeStyle = C.border; g.lineWidth = 1.5; g.beginPath(); g.moveTo(Lp, Tp); g.lineTo(Lp, H - Bp); g.lineTo(W - Rp, H - Bp); g.stroke();
+  g.textAlign = 'center'; g.textBaseline = 'bottom'; g.fillText(ax.xLabel, (Lp + W - Rp) / 2, H - 4);
+  g.save(); g.translate(fs * 0.85, (Tp + H - Bp) / 2); g.rotate(-Math.PI / 2); g.textBaseline = 'middle';
+  g.fillText(ax.yLabel, 0, 0); g.restore();
+
+  g.save(); g.beginPath(); g.rect(Lp, 0, W - Lp, H - Bp + 2); g.clip();
+  if (SC.plot) { SC.plot(g, { px, py, fs, W, H, Lp, Rp, Tp, Bp, big }); g.restore(); return; }
+  g.restore();
+
+  // padrão: trajetória simulada de cada tanque + posição atual
+  st.tanks.forEach((tk, i) => {
+    const s = st.series[i];
+    g.save(); g.strokeStyle = tk.ink; g.lineWidth = 3; g.lineJoin = 'round'; g.lineCap = 'round';
+    g.beginPath(); s.forEach(([t, h], j) => j ? g.lineTo(px(t), py(h)) : g.moveTo(px(t), py(h)));
+    if (st.t > s[s.length - 1][0]) g.lineTo(px(st.t), py(tk.h));
+    g.stroke(); g.restore();
+    g.beginPath(); g.arc(px(Math.min(st.t, X.to)), py(tk.h), fs * 0.38, 0, 7); g.fillStyle = tk.color; g.fill();
+    g.lineWidth = 2.5; g.strokeStyle = tk.ink; g.stroke();
+  });
+  g.textAlign = 'left'; g.textBaseline = 'middle'; let lx = Lp;
+  g.font = `600 ${fs}px Inter, system-ui, sans-serif`;
+  st.tanks.forEach(tk => { g.fillStyle = tk.ink; const t = `● ${tk.name}`; g.fillText(t, lx, Tp * 0.5); lx += g.measureText(t).width + fs * 1.1; });
+}
+
+// ---------- rótulos 3D ----------
+const _v = new THREE.Vector3();
+function updateLabels() {
+  const w = view.clientWidth, h = view.clientHeight;
+  (SC.labels || []).forEach(({ el, pos }) => {
+    _v.copy(pos).project(camera);
+    el.style.transform = `translate(${(_v.x * .5 + .5) * w}px, ${(-_v.y * .5 + .5) * h}px) translate(-50%, -100%)`;
+  });
+}
+
+// ---------- eventos ----------
+$('#btnPlay').onclick = e => { e.currentTarget.blur(); togglePlay(); };
+$('#btnReset').onclick = e => { e.currentTarget.blur(); reset(); };
+document.querySelectorAll('.graphStage').forEach(seg => seg.onclick = e => {
+  const b = e.target.closest('button'); if (!b) return; b.blur(); setStage(+b.dataset.s);
+});
+
+// seleção de tanque: clique (sem arrastar) no 3D ou no cartão de k
+function select(i) { selected = (i == null || selected === i) ? null : i; updateUI(); }
+$('#kCompare').addEventListener('click', e => { const b = e.target.closest('button.kc'); if (b) { b.blur(); select(+b.dataset.i); } });
+const ray = new THREE.Raycaster(), _p = new THREE.Vector2();
+let downAt = null;
+renderer.domElement.addEventListener('pointerdown', e => { downAt = [e.clientX, e.clientY]; });
+renderer.domElement.addEventListener('pointerup', e => {
+  if (!downAt || Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 5 || !SC.pick) return;
+  const r = renderer.domElement.getBoundingClientRect();
+  _p.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  ray.setFromCamera(_p, camera);
+  const i = SC.pick(ray);
+  if (i == null) { selected = null; updateUI(); } else select(i);
+});
+
+renderer.domElement.addEventListener('pointermove', e => {
+  if (!SC.hover || e.buttons) return;
+  const r = renderer.domElement.getBoundingClientRect();
+  _p.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  ray.setFromCamera(_p, camera); SC.hover(ray);
+});
+renderer.domElement.addEventListener('pointerleave', () => SC.hover?.(null));
+
+// preferências de visualização (só neste navegador)
+const pref = {
+  get(k, d) { try { const v = localStorage.getItem('torricelli.' + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem('torricelli.' + k, JSON.stringify(v)); } catch {} },
+};
+
+// gráfico ampliado
+const big = $('#bigGraph');
+function toggleBig(force) {
+  if (SC?.wip) force = false;
+  const open = force ?? big.classList.contains('hide');
+  big.classList.toggle('hide', !open);
+  $('#btnBig').textContent = open ? '✕ Reduzir' : '⤢ Ampliar';
+}
+$('#btnBig').onclick = e => { e.currentTarget.blur(); toggleBig(); };
+$('#btnBigClose').onclick = e => { e.currentTarget.blur(); toggleBig(false); };
+
+// divisor palco | painel (porcentagem da largura do palco)
+const SPLIT_MIN = 35, SPLIT_MAX = 82;
+function setSplit(p) {
+  p = Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, p));
+  document.body.style.setProperty('--cols', `${p}fr 1rem ${100 - p}fr`);
+  pref.set('split', p); return p;
+}
+setSplit(pref.get('split', 70));
+const splitter = $('#splitter');
+splitter.addEventListener('pointerdown', e => {
+  splitter.setPointerCapture(e.pointerId); splitter.classList.add('drag'); document.body.classList.add('dragging');
+});
+splitter.addEventListener('pointermove', e => {
+  if (!splitter.hasPointerCapture(e.pointerId)) return;
+  const r = document.body.getBoundingClientRect(), pad = parseFloat(getComputedStyle(document.body).paddingLeft);
+  setSplit(100 * (e.clientX - r.left - pad) / (r.width - 2 * pad));
+});
+const endDrag = () => { splitter.classList.remove('drag'); document.body.classList.remove('dragging'); };
+splitter.addEventListener('pointerup', endDrag); splitter.addEventListener('pointercancel', endDrag);
+const togglePanel = () => setSplit(pref.get('split', 70) > 60 ? 50 : 70);
+splitter.addEventListener('dblclick', togglePanel);
+
+// seções recolhíveis do painel
+const collapsed = new Set(pref.get('collapsed', []));
+document.querySelectorAll('#side section[data-sec]').forEach(sec => {
+  sec.classList.toggle('collapsed', collapsed.has(sec.dataset.sec));
+  sec.querySelector('.sec-label.tg').onclick = () => {
+    const on = sec.classList.toggle('collapsed');
+    on ? collapsed.add(sec.dataset.sec) : collapsed.delete(sec.dataset.sec);
+    pref.set('collapsed', [...collapsed]);
+    refitFormulas();
+  };
+});
+
+// re-mede as fórmulas quando o painel muda de largura
+function refitFormulas() { document.querySelectorAll('#formulaLines .ln').forEach(el => delete el.dataset.src); }
+new ResizeObserver(() => { refitFormulas(); fitSteps(); }).observe($('#side'));
+
+$('#sideTabs').onclick = e => { const b = e.target.closest('button'); if (b) { b.blur(); setSideTab(b.dataset.t); } };
+$('#btnNext').onclick = e => { e.currentTarget.blur(); nextStep(); };
+$('#btnPrev').onclick = e => { e.currentTarget.blur(); prevStep(); };
+
+$('#paneSlides').onclick = e => {
+  const b = e.target.closest('.thumb'); if (!b) return; b.blur();
+  openDeck({ list: SLIDES.scenes[SC.key], i: +b.dataset.i });
+};
+$('#paneVideo').innerHTML = `<p class="vidCap">${SLIDES.video.caption}</p>
+  <button class="pill dark" id="vidOpen" style="align-self:flex-start">▶ Abrir vídeo no palco</button>`;
+$('#vidOpen').onclick = e => { e.currentTarget.blur(); openDeck({ video: true }); };
+$('#deckBtn').onclick = e => { e.currentTarget.blur(); openDeck({ list: fullDeck(), i: 0, full: true }); };
+$('#deckPrev').onclick = e => { e.currentTarget.blur(); stepDeck(-1); };
+$('#deckNext').onclick = e => { e.currentTarget.blur(); stepDeck(1); };
+$('#deckFull').onclick = e => { e.currentTarget.blur(); toggleFullscreen(); };
+$('#btnFs').onclick = e => { e.currentTarget.blur(); toggleFullscreen(); };
+$('#layoutSeg').onclick = e => { const b = e.target.closest('button'); if (b) { b.blur(); savedLayout = null; setLayout(b.dataset.l); } };
+$('#deckBack').onclick = e => { e.currentTarget.blur(); closeDeck(); };
+$('#deckOpen').onclick = e => {
+  e.currentTarget.blur();
+  const k = sceneOfSlide(deck.list[deck.i]); closeDeck(false);
+  const sc = SCENES.find(x => x.key === k); if (sc) loadScene(sc);
+};
+
+addEventListener('keydown', e => {
+  if (e.target.matches?.('input') && e.key.startsWith('Arrow')) return; // setas ajustam o slider focado
+  if (deck) {   // slide ou vídeo aberto no palco: a simulação por baixo não recebe teclas
+    if (e.key === 'Escape') { closeDeck(); return; }
+    if (!deck.video && e.key === 'ArrowLeft') { e.preventDefault(); stepDeck(-1); return; }
+    if (!deck.video && e.key === 'ArrowRight') { e.preventDefault(); stepDeck(1); return; }
+    if (!deck.video && (e.key === '+' || e.key === '=')) { setZoom(zoom + 0.5); return; }
+    if (!deck.video && e.key === '-') { setZoom(zoom - 0.5); return; }
+    if (e.key === ' ' || e.key.startsWith('Arrow') || /^[rgpRGP]$/.test(e.key)) return;
+  }
+  if (e.key === ' ') { e.preventDefault(); togglePlay(); }
+  else if (e.key === 'g' || e.key === 'G') toggleBig();
+  else if (e.key === 'p' || e.key === 'P') togglePanel();
+  else if (e.key === 'Escape') toggleBig(false);
+  else if (e.key === 'ArrowLeft') setStage(st.stage - 1);
+  else if (e.key === 'ArrowRight') setStage(st.stage + 1);
+  else if (e.key === 'ArrowDown' && sideTab === 'apre') { e.preventDefault(); nextStep(); }
+  else if (e.key === 'ArrowUp' && sideTab === 'apre') { e.preventDefault(); prevStep(); }
+  else if (e.key === 'e' || e.key === 'E') setSideTab('enun');
+  else if (e.key === 's' || e.key === 'S') setSideTab('sim');
+  else if (e.key === 'a' || e.key === 'A') setSideTab('apre');
+  else if (e.key === 'd' || e.key === 'D') setSideTab('slides');
+  else if (e.key === 'f' || e.key === 'F') toggleFullscreen();
+  else if (e.key === 'b' || e.key === 'B') { savedLayout = null; setLayout(layout === 'stage' ? 'both' : 'stage'); }
+  else if (e.key === 'c' || e.key === 'C') { savedLayout = null; setLayout(layout === 'panel' ? 'both' : 'panel'); }
+  else if (e.key === 'r' || e.key === 'R') reset();
+  else if (/^[0-4]$/.test(e.key)) { const sc = SCENES.find(x => x.key === e.key); if (sc) loadScene(sc); }
+});
+
+// ---------- loop ----------
+let last = performance.now(), lastUi = 0;
+function frame(now) {
+  const dtReal = Math.min((now - last) / 1000, 0.1); last = now;
+  if (st.running) step(dtReal * st.speed);
+  SC.update(st, (st.running || st.done || SC.static) ? dtReal : 0);
+  if (layout !== 'panel') { controls.update(); renderer.render(scene3, camera); updateLabels(); }
+  drawGraph($('#graph'));
+  if (!big.classList.contains('hide')) drawGraph($('#graphBig'), true);
+  if (now - lastUi > 110) { updateUI(); lastUi = now; }
+  requestAnimationFrame(frame);
+}
+
+durUnit = pref.get('durUnit', 's');
+resize();
+loadScene(SCENES[0]);
+setSideTab(pref.get('sideTab', 'sim'));
+setLayout(pref.get('layout', 'both'));
+// re-mede as fórmulas quando as fontes terminarem de carregar
+document.fonts?.ready.then(() => { refitFormulas(); fitSteps(); });
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

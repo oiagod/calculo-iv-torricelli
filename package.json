@@ -1,0 +1,12 @@
+{
+  "name": "simulador-torricelli",
+  "private": true,
+  "type": "module",
+  "description": "Simulador 3D de esvaziamento de tanques (Lei de Torricelli). O app não tem build: abra index.html por um servidor estático.",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "vitest": "^5.0.5"
+  }
+}
