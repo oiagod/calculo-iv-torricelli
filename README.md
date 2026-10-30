@@ -1,6 +1,6 @@
 # Simulador da Lei de Torricelli — Cálculo IV
 
-[![tests](https://github.com/OWNER/REPO/actions/workflows/tests.yml/badge.svg)](https://github.com/OWNER/REPO/actions/workflows/tests.yml)
+[![tests](https://github.com/oiagod/calculo-iv-torricelli/actions/workflows/tests.yml/badge.svg)](https://github.com/oiagod/calculo-iv-torricelli/actions/workflows/tests.yml)
 
 Simulador 3D de esvaziamento de tanques para a apresentação de Cálculo IV: Lei de Torricelli,
 cilindro (Q1), garrafa com água e óleo (Q2), sistema anti-incêndio (Q3) e esfera (Q4).
