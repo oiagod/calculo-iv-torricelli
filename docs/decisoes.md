@@ -19,3 +19,20 @@ configurações de cada cena ficam em `src/physics/simulations.js`, usadas pelo 
 **Proteção.** `tests/playback.test.js` percorre o mesmo caminho do app com quadros de 16 ms em ×100 e confere
 1581,14 s na Q1 e 11 805,84 s na Q4. Também verifica que ×1, ×10, ×1000 e quadros irregulares dão exatamente o
 mesmo instante.
+
+## 2026-10-31 — Visualização da vazão na cena 0: argumento físico incorreto
+
+**Sintoma.** O cilindro reto de comprimento v·Δt não acompanhava o jato em parábola. A justificativa gerada foi
+que o descasamento "mostra que a·v·Δt só vale para intervalos pequenos".
+
+**Causa.** Argumento incorreto. O volume que passa pelo furo em Δt é a·v·Δt independentemente da trajetória do
+jato. O dt é necessário porque v = √(2gh) muda conforme h cai.
+
+**Como foi detectado.** Revisão do raciocínio, não do código (os testes passavam).
+
+**Correção.** A vazão passou a ser mostrada como a parcela real do jato emitida em Δt mais a fatia A·Δh no topo do
+tanque (conservação de volume), e um modo "Por que dt?" compara a·v₀·Δt com o volume integrado pelo solver
+(`interval` em `src/physics/flow.js`). O commit local com o cilindro reto (0db8fb2) foi descartado sem ir ao GitHub.
+
+**Proteção.** `tests/flow.test.js`: A·Δh = a·v·Δt em menos de 0,5 % para Δt = 0,05 s, e a diferença entre
+a·v₀·Δt e o volume integrado é positiva em Δt = 20 s e diminui monotonicamente à medida que Δt diminui.

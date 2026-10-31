@@ -1,8 +1,8 @@
 // Cena 0 — Lei de Torricelli (introdução)
 // Mesmo formato de scenes/q2.js: enunciado (HTML), nota (opcional) e passos da apresentação.
 // Campo extra por passo: nota (texto pequeno em itálico).
-// Ações desta cena: { type: 'scene', mode: 'up'|'side', cylinder: true|false, highlight: true,
-//                     animateDt: [de, até], duration: ms }
+// Ações desta cena: { type: 'scene', mode: 'up'|'side', flow: true|false (parcela do jato + fatia Δh),
+//                     why: true|false (modo "Por que dt?"), dt: s, highlight: true, animateDt: [de, até], duration: ms }
 
 export default {
   enunciado: String.raw`
@@ -37,31 +37,32 @@ export default {
       titulo: 'A observação: o jato para cima',
       tex: [String.raw`d_{\text{subida}} \approx h`],
       texto: 'Com um tubo curvado para cima na saída do tanque, como numa fonte, o jato sobe quase até o nível da água dentro do tanque. Fica um pouco abaixo por causa do atrito com o ar e com a própria água.',
-      action: { type: 'scene', mode: 'up', cylinder: false, highlight: true },
+      action: { type: 'scene', mode: 'up', flow: false, why: false, highlight: true },
     },
     {
       titulo: 'A conclusão: juntando 2 e 3',
       tex: [String.raw`\dfrac{v^2}{2g} = h \;\Rightarrow\; \boxed{\,v = \sqrt{2gh}\,}`, String.raw`v \propto \sqrt{h}`],
       texto: 'Se o jato sobe até a superfície, ele saiu do furo com a velocidade de algo que caiu da superfície até o furo. A velocidade depende só da altura da coluna de água acima do furo, não do formato do tanque nem da quantidade de água.',
-      action: { type: 'scene', mode: 'side', cylinder: false },
+      action: { type: 'scene', mode: 'side', flow: false, why: false },
     },
     {
-      titulo: 'Da velocidade para a vazão: o cilindro de água',
+      titulo: 'Da velocidade para a vazão: o que sai = o que some',
       tex: [
-        String.raw`\Delta V = a\cdot v\,\Delta t \qquad (\text{base} \times \text{comprimento})`,
-        String.raw`a = 1\ \text{cm}^2,\ v = 140\ \text{cm/s},\ \Delta t = 0{,}01\ \text{s} \;\Rightarrow\; \Delta V = 1\cdot 1{,}4 = 1{,}4\ \text{cm}^3`,
+        String.raw`\Delta V_{\text{furo}} = a\cdot v\,\Delta t \qquad \Delta V_{\text{tanque}} = A\cdot\Delta h`,
+        String.raw`A\,\Delta h = a\,v\,\Delta t \;\Rightarrow\; A\,\dfrac{dh}{dt} = -a\sqrt{2gh}`,
       ],
-      texto: 'Em um intervalo Δt, a água que sai pelo furo forma um cilindro: base = área do furo a; comprimento = distância percorrida v·Δt.',
-      action: { type: 'scene', mode: 'side', cylinder: true, animateDt: [0.01, 0.5], duration: 3000 },
+      texto: 'Em Δt, passa pelo furo de área a uma parcela de água com volume a·v·Δt (em terracota no jato). Depois ela cai em parábola, mas o volume é o mesmo, qualquer que seja o caminho. Essa água sai do topo do tanque: uma fatia de área A e espessura Δh. Conservação de volume: as duas contas são iguais.',
+      nota: 'A fatia está desenhada mais grossa que o Δh real; o valor na etiqueta é o real.',
+      action: { type: 'scene', mode: 'side', flow: true, dt: 0.1 },
     },
     {
       titulo: 'Por que dt, e não t',
       tex: [
-        String.raw`\Delta V \approx a\,v\,\Delta t \;\Rightarrow\; \dfrac{\Delta V}{\Delta t} \approx a\,v`,
-        String.raw`\Delta t \to 0:\qquad \dfrac{dV}{dt} = a\,v`,
+        String.raw`v = \sqrt{2gh}\ \text{ muda porque } h \text{ cai}`,
+        String.raw`\Delta V \approx a\,v_0\,\Delta t \;\xrightarrow{\;\Delta t \to 0\;}\; \dfrac{dV}{dt} = -a\,v`,
       ],
-      texto: 'A velocidade não é constante: v depende de h, e h vai caindo. Por isso não dá para usar a·v·t com o tempo total. Num intervalo muito pequeno, h quase não muda e v fica praticamente constante; no limite, a conta vira exata.',
-      action: { type: 'scene', mode: 'side', cylinder: true, animateDt: [0.5, 0.01], duration: 3000 },
+      texto: 'A conta a·v·Δt supõe v constante. Mas v depende de h, e h desce enquanto a água sai: com v do começo, a conta superestima o volume. Diminuindo Δt, v quase não muda dentro do intervalo e a diferença some. No limite, a conta vira exata: é a derivada.',
+      action: { type: 'scene', mode: 'side', why: true, animateDt: [20, 0.05], duration: 6000 },
     },
     {
       titulo: 'A Lei de Torricelli',
