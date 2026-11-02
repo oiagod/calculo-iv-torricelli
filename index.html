@@ -190,6 +190,19 @@
   .step.result .sn, .step.result p{color:#d9e3dc}
   .step.result p{font-weight:600}
   .stepNav{display:flex;align-items:center;gap:.6rem;margin-top:auto;padding-top:.4rem}
+  /* cena 2: aba "Por que parou?" */
+  .parouVid{display:flex;align-items:center;gap:.9rem;flex-wrap:wrap}
+  .parouVid .snote{margin:0;flex:1;min-width:14rem;color:var(--muted);font-size:.95rem;font-style:italic;line-height:1.35}
+  #parouCards{display:flex;flex-direction:column;gap:.8rem}
+  #parouCards .step p, #parouCards .step li{color:var(--muted);font-size:clamp(1.05rem, 2.9cqi, 1.5rem);line-height:1.4}
+  #parouCards .step p.sub{margin:0;font-size:.95rem}
+  #parouCards .tl{margin:.4rem 0 0;padding-left:1.2rem} #parouCards .tl b{color:var(--ink)}
+  #parouCards .katex-display{margin:.5rem 0;font-size:clamp(1.05rem, 3cqi, 1.6rem);overflow-x:auto;overflow-y:hidden;color:var(--ink)}
+  .pchart{margin-top:.7rem} .pchart svg{display:block;width:100%;height:auto;font-family:inherit}
+  .pchart label{display:flex;justify-content:space-between;font-size:1rem;color:var(--muted);font-weight:600;margin:.4rem 0}
+  .pchart output{color:var(--ink);font-variant-numeric:tabular-nums}
+  .pchart .pread{font-size:1rem;color:var(--ink);font-weight:600;margin-top:.4rem;font-variant-numeric:tabular-nums}
+  .pchart .pread.stop{color:var(--hl)}
   .stepNav .count{margin:0 auto;color:var(--muted);font-weight:600;font-variant-numeric:tabular-nums}
   .pill.dark{background:var(--ink);color:var(--bg);border-color:var(--ink)}
   .pill:disabled{opacity:.4;cursor:default}
@@ -368,7 +381,7 @@
 <div id="splitter" title="Arraste para redimensionar · duplo clique alterna 70/30 ↔ 50/50 (P)"><span></span></div>
 
 <aside id="side">
-  <div class="seg" id="sideTabs"><button data-t="sim" class="on">Simulação</button><button data-t="enun">Enunciado</button><button data-t="apre">Apresentação</button><button data-t="slides">Slides</button><button data-t="video" hidden>Vídeo</button></div>
+  <div class="seg" id="sideTabs"><button data-t="sim" class="on">Simulação</button><button data-t="enun">Enunciado</button><button data-t="apre">Apresentação</button><button data-t="slides">Slides</button><button data-t="video" hidden>Vídeo</button><button data-t="parou" hidden>Por que parou?</button></div>
   <header><h1 id="sceneTitle"></h1><p class="goal" id="sceneGoal"></p></header>
   <div class="pane" id="paneSim">
   <p class="simWip">Simulação em construção.</p>
@@ -388,6 +401,15 @@
   <div class="pane" id="paneEnun" hidden></div>
   <div class="pane" id="paneSlides" hidden></div>
   <div class="pane" id="paneVideo" hidden></div>
+  <div class="pane" id="paneParou" hidden>
+    <div class="parouVid"><button class="pill dark" id="parouOpen">▶ Ver o trecho</button><p class="snote" id="parouCap"></p></div>
+    <div id="parouCards"></div>
+    <div class="stepNav">
+      <button class="pill" id="parouPrev" title="Voltar (↑)">↑ Voltar</button>
+      <span class="count" id="parouCount"></span>
+      <button class="pill dark" id="parouNext" title="Próximo (↓)">Próximo ↓</button>
+    </div>
+  </div>
   <div class="pane" id="paneApre" hidden>
     <div id="steps"></div>
     <div class="stepNav">
@@ -422,6 +444,7 @@ import * as analytic from './src/physics/analytic.js';
 import * as sim from './src/physics/simulations.js';
 import { timeline, advanceRun } from './src/physics/playback.js';
 import { interval, levelAfter } from './src/physics/flow.js';
+import { pushPressure, holdPressure, stopHeight } from './src/physics/capillary.js';
 
 // ---------- tema ----------
 const C = { ink: '#1F3D33', muted: '#5E6B64', hl: '#B5523B', card: '#FBF9F4', border: '#E3DDD0', grid: '#ECE7DC',
@@ -1722,6 +1745,8 @@ function loadScene(sc) {
     toggleBig(false); renderContent(sc); renderSlidesPane(sc);
     $('#sideTabs [data-t="video"]').hidden = !hasVideo();
     if (sideTab === 'video' && !hasVideo()) setSideTab('sim');
+    $('#sideTabs [data-t="parou"]').hidden = !sc.content?.parou; renderParou(sc);
+    if (sideTab === 'parou' && !sc.content?.parou) setSideTab('sim');
     if (sideTab === 'apre') setTimeout(runFirstAction, 0);
     buildTabs(); buildSliders(); buildCards(); buildSpeeds();
     $('[data-sec="parametros"]').style.display = sc.params.length ? '' : 'none';
@@ -1870,10 +1895,11 @@ function fitKatex(el) {
 
 // ---------- abas da barra lateral: Simulação · Enunciado · Apresentação ----------
 let sideTab = 'sim', revealed = 1;
-const PANES = { sim: '#paneSim', enun: '#paneEnun', apre: '#paneApre', slides: '#paneSlides', video: '#paneVideo' };
+const PANES = { sim: '#paneSim', enun: '#paneEnun', apre: '#paneApre', slides: '#paneSlides', video: '#paneVideo', parou: '#paneParou' };
 function setSideTab(t) {
   if (!PANES[t]) return;
   if (t === 'video' && !hasVideo()) t = 'sim';
+  if (t === 'parou' && !SC?.content?.parou) t = 'sim';
   const prev = sideTab, changed = t !== prev; sideTab = t;
   pref.set('sideTab', t === 'video' ? prev : t);   // o vídeo nunca reabre sozinho ao recarregar
   Object.entries(PANES).forEach(([k, sel]) => { $(sel).hidden = k !== t; });
@@ -1881,7 +1907,7 @@ function setSideTab(t) {
   if (changed) $(PANES[t]).animate([{ opacity: 0 }, { opacity: 1 }], { duration: 220, easing: 'ease-out' });
   if (changed && t === 'apre') runFirstAction();
   if (t === 'video') openDeck({ video: true });
-  else if (prev === 'video' && deck?.video) closeDeck();
+  else if ((prev === 'video' || prev === 'parou') && deck?.video) closeDeck();
   refitFormulas(); fitSteps();
 }
 
@@ -1915,9 +1941,10 @@ function renderDeck() {
   const media = $('#deckMedia'), v = deck.video;
   $('#deck').classList.remove('hide');
   $('#deckPrev').hidden = $('#deckNext').hidden = $('#deckCount').hidden = v;
-  if (v) {
-    media.innerHTML = `<div class="frame"><video src="${SLIDES.video.src}" controls preload="metadata" playsinline></video></div>`;
-    $('#deckCap').textContent = SLIDES.video.caption; $('#deckOpen').hidden = true;
+  if (v) {   // deck.video: true (vídeo da cena, em slides.config.js) ou { src, caption }
+    const vid = v === true ? SLIDES.video : v;
+    media.innerHTML = `<div class="frame"><video src="${vid.src}" controls preload="metadata" playsinline></video></div>`;
+    $('#deckCap').textContent = vid.caption; $('#deckOpen').hidden = true;
   } else {
     const n = deck.list[deck.i];
     media.innerHTML = `<div class="frame"><img src="${slideSrc(n)}" alt="Slide ${n}: ${slideTitle(n)}" decoding="async"></div>`;
@@ -1952,6 +1979,68 @@ function stepDeck(d) {
   const i = Math.max(0, Math.min(deck.list.length - 1, deck.i + d));
   if (i !== deck.i) { deck.i = i; renderDeck(); }
 }
+// ---------- cena 2: aba "Por que parou?" (cartões revelados um a um e vídeo do fim do ensaio) ----------
+let parouN = 1;
+function renderParou(sc) {
+  const p = sc.content?.parou;
+  if (!p) { $('#parouCards').innerHTML = ''; return; }
+  $('#parouCap').textContent = p.video.caption;
+  $('#parouCards').innerHTML = p.cartoes.map((c, i) =>
+    `<article class="step"><div class="sn">${i + 1} de ${p.cartoes.length}</div><h4>${c.titulo}</h4>${mathHtml(c.html)}${c.grafico ? '<div class="pchart"></div>' : ''}</article>`).join('');
+  $('#parouCards').querySelectorAll('.pchart').forEach(pressureChart);
+  parouN = 1; showParou(false);
+}
+function showParou(animate) {
+  const els = [...$('#parouCards').querySelectorAll('.step')], n = els.length;
+  els.forEach((el, i) => { el.hidden = i >= parouN; });
+  const cur = els[parouN - 1];
+  if (animate && cur) { cur.classList.remove('in'); void cur.offsetWidth; cur.classList.add('in'); cur.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+  $('#parouCount').textContent = n ? `${parouN} / ${n}` : '';
+  $('#parouPrev').disabled = parouN <= 1; $('#parouNext').disabled = parouN >= n;
+}
+function stepParou(d) {
+  const n = $('#parouCards').querySelectorAll('.step').length, k = Math.max(1, Math.min(n, parouN + d));
+  if (k !== parouN) { parouN = k; showParou(d > 0); }
+}
+// mini-gráfico: empurra (ρgh, cresce com h) × segura (até 2γ/r, faixa); onde a faixa fica acima da linha, a água para
+function pressureChart(box) {
+  const R = 0.002, HOLD = holdPressure(R), HS = stopHeight(R), XMAX = 15, YMAX = 160;
+  const W = 400, H = 230, L = 46, Rm = 12, T = 12, B = 34;
+  const X = h => L + (W - L - Rm) * h / XMAX, Y = p => H - B - (H - T - B) * p / YMAX;
+  const xt = [0, 3, 6, 9, 12, 15].map(h => `<line x1="${X(h)}" x2="${X(h)}" y1="${Y(0)}" y2="${Y(0) + 4}" stroke="var(--muted)"/>
+      <text x="${X(h)}" y="${Y(0) + 17}" text-anchor="middle">${h}</text>`).join('');
+  const yt = [0, 50, 100, 150].map(p => `<line x1="${L}" x2="${W - Rm}" y1="${Y(p)}" y2="${Y(p)}" stroke="var(--border)"/>
+      <text x="${L - 6}" y="${Y(p) + 4}" text-anchor="end">${p}</text>`).join('');
+  box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Pressão que empurra e que segura em função da altura acima do furo">
+    <g font-size="12" fill="var(--muted)">${yt}${xt}
+      <text x="${(L + W - Rm) / 2}" y="${H - 2}" text-anchor="middle">altura da água acima do furo (mm)</text>
+      <text x="12" y="${(T + H - B) / 2}" text-anchor="middle" transform="rotate(-90 12 ${(T + H - B) / 2})">pressão (Pa)</text></g>
+    <rect x="${L}" y="${Y(HOLD)}" width="${W - Rm - L}" height="${Y(0) - Y(HOLD)}" fill="var(--water)" opacity=".35"/>
+    <line x1="${L}" x2="${W - Rm}" y1="${Y(HOLD)}" y2="${Y(HOLD)}" stroke="var(--water-ink)" stroke-width="2" stroke-dasharray="6 4"/>
+    <polygon points="${X(0)},${Y(0)} ${X(0)},${Y(HOLD)} ${X(HS)},${Y(HOLD)}" fill="var(--hl)" opacity=".3"/>
+    <text x="${X(0.35)}" y="${Y(HOLD) + 15}" font-size="12.5" font-weight="700" fill="var(--hl)">a água</text>
+    <text x="${X(0.35)}" y="${Y(HOLD) + 30}" font-size="12.5" font-weight="700" fill="var(--hl)">para aqui</text>
+    <text x="${W - Rm - 4}" y="${Y(HOLD) + 16}" font-size="12.5" font-weight="700" fill="var(--water-ink)" text-anchor="end">segura (até 2γ/r ≈ ${fmt(HOLD, 0)} Pa)</text>
+    <line x1="${X(0)}" y1="${Y(0)}" x2="${X(XMAX)}" y2="${Y(pushPressure(XMAX))}" stroke="var(--ink)" stroke-width="2.5"/>
+    <text x="${X(10.6)}" y="${Y(pushPressure(10.6)) + 18}" font-size="12.5" font-weight="700" fill="var(--ink)">empurra (ρgh)</text>
+    <circle r="6" fill="var(--hl)" stroke="#fff" stroke-width="2"/>
+  </svg>
+  <label>h acima do furo <output></output></label><input type="range" min="0" max="${XMAX}" step="0.1" value="4">
+  <div class="pread"></div>`;
+  const inp = box.querySelector('input'), dot = box.querySelector('circle'), out = box.querySelector('output'), rd = box.querySelector('.pread');
+  const show = () => {
+    const h = +inp.value, push = pushPressure(h), stop = push < HOLD;
+    dot.setAttribute('cx', X(h)); dot.setAttribute('cy', Y(push));
+    out.textContent = `${fmt(h, 1)} mm`; paintRange(inp);
+    rd.textContent = `empurra ${fmt(push, 0)} Pa ${stop ? '<' : '>'} segura até ${fmt(HOLD, 0)} Pa → ${stop ? 'a película segura: não sai nada' : 'a água vence a película e sai'}`;
+    rd.classList.toggle('stop', stop);
+  };
+  inp.oninput = show; show();
+}
+$('#parouOpen').onclick = e => { e.currentTarget.blur(); const p = SC.content?.parou; if (p) openDeck({ video: p.video }); };
+$('#parouNext').onclick = e => { e.currentTarget.blur(); stepParou(1); };
+$('#parouPrev').onclick = e => { e.currentTarget.blur(); stepParou(-1); };
+
 // ---------- layout (ambos · só palco · só painel) e tela cheia ----------
 let layout = 'both', savedLayout = null;   // savedLayout: layout a restaurar depois do slide em tela cheia
 function setLayout(l, persist = true) {
@@ -2266,6 +2355,8 @@ addEventListener('keydown', e => {
   else if (e.key === 'ArrowRight') setStage(st.stage + 1);
   else if (e.key === 'ArrowDown' && sideTab === 'apre') { e.preventDefault(); nextStep(); }
   else if (e.key === 'ArrowUp' && sideTab === 'apre') { e.preventDefault(); prevStep(); }
+  else if (e.key === 'ArrowDown' && sideTab === 'parou') { e.preventDefault(); stepParou(1); }
+  else if (e.key === 'ArrowUp' && sideTab === 'parou') { e.preventDefault(); stepParou(-1); }
   else if (e.key === 'e' || e.key === 'E') setSideTab('enun');
   else if (e.key === 's' || e.key === 'S') setSideTab('sim');
   else if (e.key === 'a' || e.key === 'A') setSideTab('apre');

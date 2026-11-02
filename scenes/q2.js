@@ -26,6 +26,59 @@ export default {
     o modelo previu os valores reais?</p>`,
   nota: 'Nosso grupo repetiu o ensaio (b) com água e com óleo de cozinha.',
 
+  // aba "Por que parou?": o fim do ensaio com água. Cartões revelados um a um (↓ ↑); fórmulas entre $…$ ou $$…$$.
+  // grafico: true põe no cartão o mini-gráfico empurra × segura com o slider de h.
+  parou: {
+    video: {
+      src: './media/agua_furo_para.mp4',
+      caption: 'Final do ensaio com água. Velocidade indicada no canto do vídeo; a ruptura do filete está em câmera lenta.',
+    },
+    cartoes: [
+      {
+        titulo: 'O que vimos',
+        html: String.raw`<p class="sub">t contado desde os 10 cm</p>
+          <ul class="tl">
+            <li><b>até ~115 s</b>: escoando pela parede;</li>
+            <li><b>~115 a 212 s</b>: um filete fino ainda escorre, com o nível quase parado na altura do furo;</li>
+            <li><b>~212 a 214 s</b>: o filete se rompe e sai a última gota;</li>
+            <li><b>a partir de ~214 s</b>: não sai mais nada.</li>
+          </ul>`,
+      },
+      {
+        titulo: 'Por que vira um filete',
+        html: String.raw`<p>Com pouca pressão, a água sai devagar demais para formar um jato livre: ela gruda no plástico e
+          escorre pela parede. É o mesmo “efeito bule” do chá que escorre pelo bico.</p>`,
+      },
+      {
+        titulo: 'Por que o filete se rompe',
+        html: String.raw`<p>Quando a vazão fica pequena demais, a tensão superficial puxa o filete fino até ele se partir
+          numa gota, como o fio fino de uma torneira que vira gotas.</p>`,
+      },
+      {
+        titulo: 'Por que não sai mais nada',
+        html: String.raw`<p>O que empurra é a coluna de água acima do furo:</p>
+          $$P_{\text{empurra}} = \rho\,g\,h \approx 10\ \text{Pa por milímetro de água}$$
+          <p>O que segura é a película curva na boca do furo (equação de Young-Laplace):</p>
+          $$P_{\text{segura}} \approx \frac{2\gamma}{r}$$
+          <p>Água: $\gamma \approx 0{,}072$ N/m; furo de ~4 mm ($r \approx 2$ mm):</p>
+          $$\frac{2\cdot 0{,}072}{0{,}002} \approx 72\ \text{Pa} \;\approx\; 7\ \text{mm de água}$$
+          <p>Com o nível a poucos milímetros do furo, o empurrão não vence a película.</p>`,
+        grafico: true,
+      },
+      {
+        titulo: 'Ressalva',
+        html: String.raw`<p>$2\gamma/r$ é um teto: a película não forma uma meia-esfera perfeita, e o plástico influencia.
+          A conta acerta a ordem de grandeza (milímetros), não o número exato.</p>`,
+      },
+      {
+        titulo: 'Limite do modelo',
+        html: String.raw`<p>A Lei de Torricelli não inclui tensão superficial nem a aderência da água ao plástico, por isso
+          prevê que a água sai até $h = 0$. Na prática, sobram alguns milímetros: como a viscosidade no óleo, é um efeito
+          que o modelo ignora.</p>`,
+      },
+    ],
+  },
+
   passos: [
     {
       titulo: 'Modelo',
