@@ -198,11 +198,8 @@
   #parouCards .step p.sub{margin:0;font-size:.95rem}
   #parouCards .tl{margin:.4rem 0 0;padding-left:1.2rem} #parouCards .tl b{color:var(--ink)}
   #parouCards .katex-display{margin:.5rem 0;font-size:clamp(1.05rem, 3cqi, 1.6rem);overflow-x:auto;overflow-y:hidden;color:var(--ink)}
-  .pchart{margin-top:.7rem} .pchart svg{display:block;width:100%;height:auto;font-family:inherit}
-  .pchart label{display:flex;justify-content:space-between;font-size:1rem;color:var(--muted);font-weight:600;margin:.4rem 0}
-  .pchart output{color:var(--ink);font-variant-numeric:tabular-nums}
-  .pchart .pread{font-size:1rem;color:var(--ink);font-weight:600;margin-top:.4rem;font-variant-numeric:tabular-nums}
-  .pchart .pread.stop{color:var(--hl)}
+  .pfilm{margin-top:.7rem} .pfilm svg{display:block;width:100%;height:auto;font-family:inherit}
+  #parouCards .pfilm .fnote{margin:.4rem 0 0;font-size:1rem;color:var(--ink);font-weight:600}
   .stepNav .count{margin:0 auto;color:var(--muted);font-weight:600;font-variant-numeric:tabular-nums}
   .pill.dark{background:var(--ink);color:var(--bg);border-color:var(--ink)}
   .pill:disabled{opacity:.4;cursor:default}
@@ -444,7 +441,6 @@ import * as analytic from './src/physics/analytic.js';
 import * as sim from './src/physics/simulations.js';
 import { timeline, advanceRun } from './src/physics/playback.js';
 import { interval, levelAfter } from './src/physics/flow.js';
-import { pushPressure, holdPressure, stopHeight } from './src/physics/capillary.js';
 
 // ---------- tema ----------
 const C = { ink: '#1F3D33', muted: '#5E6B64', hl: '#B5523B', card: '#FBF9F4', border: '#E3DDD0', grid: '#ECE7DC',
@@ -1986,8 +1982,8 @@ function renderParou(sc) {
   if (!p) { $('#parouCards').innerHTML = ''; return; }
   $('#parouCap').textContent = p.video.caption;
   $('#parouCards').innerHTML = p.cartoes.map((c, i) =>
-    `<article class="step"><div class="sn">${i + 1} de ${p.cartoes.length}</div><h4>${c.titulo}</h4>${mathHtml(c.html)}${c.grafico ? '<div class="pchart"></div>' : ''}</article>`).join('');
-  $('#parouCards').querySelectorAll('.pchart').forEach(pressureChart);
+    `<article class="step"><div class="sn">${i + 1} de ${p.cartoes.length}</div><h4>${c.titulo}</h4>${mathHtml(c.html)}${c.pelicula ? '<div class="pfilm"></div>' : ''}</article>`).join('');
+  $('#parouCards').querySelectorAll('.pfilm').forEach(filmIllustration);
   parouN = 1; showParou(false);
 }
 function showParou(animate) {
@@ -2002,40 +1998,38 @@ function stepParou(d) {
   const n = $('#parouCards').querySelectorAll('.step').length, k = Math.max(1, Math.min(n, parouN + d));
   if (k !== parouN) { parouN = k; showParou(d > 0); }
 }
-// mini-gráfico: empurra (ρgh, cresce com h) × segura (até 2γ/r, faixa); onde a faixa fica acima da linha, a água para
-function pressureChart(box) {
-  const R = 0.002, HOLD = holdPressure(R), HS = stopHeight(R), XMAX = 15, YMAX = 160;
-  const W = 400, H = 230, L = 46, Rm = 12, T = 12, B = 34;
-  const X = h => L + (W - L - Rm) * h / XMAX, Y = p => H - B - (H - T - B) * p / YMAX;
-  const xt = [0, 3, 6, 9, 12, 15].map(h => `<line x1="${X(h)}" x2="${X(h)}" y1="${Y(0)}" y2="${Y(0) + 4}" stroke="var(--muted)"/>
-      <text x="${X(h)}" y="${Y(0) + 17}" text-anchor="middle">${h}</text>`).join('');
-  const yt = [0, 50, 100, 150].map(p => `<line x1="${L}" x2="${W - Rm}" y1="${Y(p)}" y2="${Y(p)}" stroke="var(--border)"/>
-      <text x="${L - 6}" y="${Y(p) + 4}" text-anchor="end">${p}</text>`).join('');
-  box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Pressão que empurra e que segura em função da altura acima do furo">
-    <g font-size="12" fill="var(--muted)">${yt}${xt}
-      <text x="${(L + W - Rm) / 2}" y="${H - 2}" text-anchor="middle">altura da água acima do furo (mm)</text>
-      <text x="12" y="${(T + H - B) / 2}" text-anchor="middle" transform="rotate(-90 12 ${(T + H - B) / 2})">pressão (Pa)</text></g>
-    <rect x="${L}" y="${Y(HOLD)}" width="${W - Rm - L}" height="${Y(0) - Y(HOLD)}" fill="var(--water)" opacity=".35"/>
-    <line x1="${L}" x2="${W - Rm}" y1="${Y(HOLD)}" y2="${Y(HOLD)}" stroke="var(--water-ink)" stroke-width="2" stroke-dasharray="6 4"/>
-    <polygon points="${X(0)},${Y(0)} ${X(0)},${Y(HOLD)} ${X(HS)},${Y(HOLD)}" fill="var(--hl)" opacity=".3"/>
-    <text x="${X(0.35)}" y="${Y(HOLD) + 15}" font-size="12.5" font-weight="700" fill="var(--hl)">a água</text>
-    <text x="${X(0.35)}" y="${Y(HOLD) + 30}" font-size="12.5" font-weight="700" fill="var(--hl)">para aqui</text>
-    <text x="${W - Rm - 4}" y="${Y(HOLD) + 16}" font-size="12.5" font-weight="700" fill="var(--water-ink)" text-anchor="end">segura (até 2γ/r ≈ ${fmt(HOLD, 0)} Pa)</text>
-    <line x1="${X(0)}" y1="${Y(0)}" x2="${X(XMAX)}" y2="${Y(pushPressure(XMAX))}" stroke="var(--ink)" stroke-width="2.5"/>
-    <text x="${X(10.6)}" y="${Y(pushPressure(10.6)) + 18}" font-size="12.5" font-weight="700" fill="var(--ink)">empurra (ρgh)</text>
-    <circle r="6" fill="var(--hl)" stroke="#fff" stroke-width="2"/>
-  </svg>
-  <label>h acima do furo <output></output></label><input type="range" min="0" max="${XMAX}" step="0.1" value="4">
-  <div class="pread"></div>`;
-  const inp = box.querySelector('input'), dot = box.querySelector('circle'), out = box.querySelector('output'), rd = box.querySelector('.pread');
-  const show = () => {
-    const h = +inp.value, push = pushPressure(h), stop = push < HOLD;
-    dot.setAttribute('cx', X(h)); dot.setAttribute('cy', Y(push));
-    out.textContent = `${fmt(h, 1)} mm`; paintRange(inp);
-    rd.textContent = `empurra ${fmt(push, 0)} Pa ${stop ? '<' : '>'} segura até ${fmt(HOLD, 0)} Pa → ${stop ? 'a película segura: não sai nada' : 'a água vence a película e sai'}`;
-    rd.classList.toggle('stop', stop);
+// ilustração qualitativa (sem escala de pressão): corte da parede com o furo, água até ~2 mm acima do centro,
+// película abaulada para fora na boca do furo; "segura" um pouco maior que "empurra"
+function filmIllustration(box) {
+  const wall = [190, 212], hole = [128, 172], level = 128;   // furo de ~4 mm (r ≈ 22 px); nível ~2 mm acima do centro
+  const arrow = (x1, x2, y, w, color) => {
+    const d = Math.sign(x2 - x1), head = 6 + 2 * w;
+    return `<line x1="${x1}" y1="${y}" x2="${x2 - d * head}" y2="${y}" stroke="${color}" stroke-width="${w}" stroke-linecap="round"/>
+      <polygon points="${x2},${y} ${x2 - d * head},${y - head * 0.7} ${x2 - d * head},${y + head * 0.7}" fill="${color}"/>`;
   };
-  inp.oninput = show; show();
+  box.innerHTML = `<svg viewBox="0 0 400 236" role="img" aria-label="Corte da parede da garrafa no furo: a coluna de água empurra para fora e a película na boca do furo segura">
+    <g font-size="12.5" font-weight="600" fill="var(--muted)">
+      <text x="20" y="20">dentro da garrafa</text><text x="380" y="20" text-anchor="end">fora</text></g>
+    <rect x="14" y="${level}" width="${wall[0] - 14}" height="${226 - level}" fill="var(--water)" opacity=".75"/>
+    <rect x="${wall[0]}" y="${hole[0]}" width="${wall[1] - wall[0]}" height="${hole[1] - hole[0]}" fill="var(--water)" opacity=".75"/>
+    <path d="M${wall[1]} ${hole[0]} Q ${wall[1] + 18} ${(hole[0] + hole[1]) / 2} ${wall[1]} ${hole[1]} Z" fill="var(--water)" opacity=".75"/>
+    <path d="M${wall[1]} ${hole[0]} Q ${wall[1] + 18} ${(hole[0] + hole[1]) / 2} ${wall[1]} ${hole[1]}" fill="none" stroke="var(--water-ink)" stroke-width="2.5"/>
+    <rect x="${wall[0]}" y="30" width="${wall[1] - wall[0]}" height="${hole[0] - 30}" fill="${C.table}" stroke="var(--muted)" stroke-width="1.2"/>
+    <rect x="${wall[0]}" y="${hole[1]}" width="${wall[1] - wall[0]}" height="${226 - hole[1]}" fill="${C.table}" stroke="var(--muted)" stroke-width="1.2"/>
+    <line x1="14" x2="${wall[0]}" y1="${level}" y2="${level}" stroke="var(--water-ink)" stroke-width="1.5" stroke-dasharray="5 4"/>
+    <text x="18" y="${level - 22}" font-size="12.5" fill="var(--water-ink)" font-weight="700">nível da água</text>
+    <text x="18" y="${level - 7}" font-size="11" fill="var(--water-ink)">~2 mm acima do centro do furo</text>
+    <text x="${wall[0] - 4}" y="44" font-size="11.5" fill="var(--muted)" text-anchor="end">parede</text>
+    ${arrow(108, 183, 150, 3.5, 'var(--ink)')}
+    <text x="146" y="194" font-size="12.5" font-weight="700" fill="var(--ink)" text-anchor="middle">empurra</text>
+    <text x="146" y="209" font-size="11.5" fill="var(--ink)" text-anchor="middle">(coluna de água)</text>
+    ${arrow(338, 236, 150, 5, 'var(--hl)')}
+    <text x="290" y="180" font-size="12.5" font-weight="700" fill="var(--hl)" text-anchor="middle">segura</text>
+    <text x="290" y="195" font-size="11.5" fill="var(--hl)" text-anchor="middle">(película)</text>
+    <line x1="${wall[1] + 11}" y1="${hole[0] + 7}" x2="250" y2="100" stroke="var(--water-ink)" stroke-width="1.2"/>
+    <text x="254" y="104" font-size="12" fill="var(--water-ink)" font-weight="600">película de água</text>
+  </svg>
+  <p class="fnote">No momento em que parou: empurra ~20 Pa · a película segura até ~70 Pa (ordem de grandeza)</p>`;
 }
 $('#parouOpen').onclick = e => { e.currentTarget.blur(); const p = SC.content?.parou; if (p) openDeck({ video: p.video }); };
 $('#parouNext').onclick = e => { e.currentTarget.blur(); stepParou(1); };

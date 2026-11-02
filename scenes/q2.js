@@ -27,7 +27,7 @@ export default {
   nota: 'Nosso grupo repetiu o ensaio (b) com água e com óleo de cozinha.',
 
   // aba "Por que parou?": o fim do ensaio com água. Cartões revelados um a um (↓ ↑); fórmulas entre $…$ ou $$…$$.
-  // grafico: true põe no cartão o mini-gráfico empurra × segura com o slider de h.
+  // pelicula: true põe no cartão a ilustração da película na boca do furo (empurra × segura).
   parou: {
     video: {
       src: './media/agua_furo_para.mp4',
@@ -63,7 +63,7 @@ export default {
           <p>Água: $\gamma \approx 0{,}072$ N/m; furo de ~4 mm ($r \approx 2$ mm):</p>
           $$\frac{2\cdot 0{,}072}{0{,}002} \approx 72\ \text{Pa} \;\approx\; 7\ \text{mm de água}$$
           <p>Com o nível a poucos milímetros do furo, o empurrão não vence a película.</p>`,
-        grafico: true,
+        pelicula: true,
       },
       {
         titulo: 'Ressalva',
