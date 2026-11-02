@@ -62,7 +62,10 @@ export default {
           $$P_{\text{segura}} \approx \frac{2\gamma}{r}$$
           <p>Água: $\gamma \approx 0{,}072$ N/m; furo de ~4 mm ($r \approx 2$ mm):</p>
           $$\frac{2\cdot 0{,}072}{0{,}002} \approx 72\ \text{Pa} \;\approx\; 7\ \text{mm de água}$$
-          <p>Com o nível a poucos milímetros do furo, o empurrão não vence a película.</p>`,
+          <p>Enquanto o filete escorre pela parede, não existe película na boca do furo: a água fica ligada de dentro
+          da garrafa até o filete, e o peso dele ajuda a puxar mais água, como um pequeno sifão. Por isso ela continuou
+          saindo mesmo com poucos milímetros de nível. Quando o filete se rompe, a película se forma, e aí o empurrão não
+          vence mais.</p>`,
         pelicula: true,
       },
       {
