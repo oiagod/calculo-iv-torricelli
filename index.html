@@ -275,27 +275,15 @@
   .tag3d.good{color:#2E7D4F;border-color:#2E7D4F}
   .tag3d.bad{color:var(--hl);border-color:var(--hl)}
   .tag3d.hot{background:var(--hl);color:var(--bg);border-color:var(--hl)}
-  /* cena 0: quadro da vazão (etiquetas, equação e barras do "Por que dt?") */
+  /* cena 0: quadro da vazão (etiquetas e equação) */
   #flowCard{position:absolute;left:1.2rem;top:5.2rem;max-width:min(30rem,42cqi);background:var(--card);border:1px solid var(--border);
     border-radius:16px;box-shadow:var(--shadow);padding:.8rem 1rem;color:var(--ink);font-size:1.02rem;line-height:1.35;transition:opacity .2s}
-  #flowCard.hide{opacity:0} #flowCard.flow .fc-why, #flowCard.why .fc-flow, #flowCard.hide .fc-why{display:none}
+  #flowCard.hide{opacity:0}
   #flowCard b{font-variant-numeric:tabular-nums}
   .fc-row{display:flex;gap:.55rem;align-items:baseline;margin-bottom:.35rem}
   .fc-row .sw{flex:none;width:.8em;height:.8em;border-radius:50%;background:var(--hl);translate:0 .05em}
   .fc-row .sw.slab{border-radius:3px}
   .fc-eq{margin-top:.55rem;padding:.5rem .7rem;border:2px solid var(--hl);border-radius:12px;color:var(--hl);font-size:1.15rem;text-align:center}
-  .fc-ttl{font-weight:700;margin-bottom:.3rem} .fc-ttl span{font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
-  .fc-v{color:var(--muted)} .fc-v b{color:var(--ink)}
-  .fc-bars{display:flex;gap:1.4rem;justify-content:center;margin:.7rem 0 .4rem}
-  .fc-bar{display:flex;flex-direction:column;align-items:center;gap:.2rem;width:9rem;text-align:center;font-size:.9rem;color:var(--muted)}
-  .fc-bar b{color:var(--ink);font-size:1rem}
-  .fc-col{height:8rem;width:3.2rem;display:flex;align-items:flex-end;border-bottom:2px solid var(--border)}
-  .fc-fill{width:100%;border-radius:6px 6px 0 0}
-  .fc-fill.naive{height:100%;background:var(--water-ink);display:flex;flex-direction:column}
-  .fc-over{background:var(--hl);border-radius:6px 6px 0 0}
-  .fc-fill.real{background:var(--water)}
-  .fc-diff{text-align:center;color:var(--hl);font-weight:600} .fc-diff b{color:var(--hl)}
-  #flowCard p{margin:.5rem 0 0;font-size:.92rem;color:var(--muted)}
   #sliders .pill{align-self:flex-start;box-shadow:none}
   .sec-label.tg{cursor:pointer;user-select:none}
   .sec-label.tg::before{content:"▾";display:inline-block;transition:transform .2s;font-size:.9em}
@@ -440,7 +428,7 @@ import * as models from './src/physics/models.js';
 import * as analytic from './src/physics/analytic.js';
 import * as sim from './src/physics/simulations.js';
 import { timeline, advanceRun } from './src/physics/playback.js';
-import { interval, levelAfter } from './src/physics/flow.js';
+import { interval } from './src/physics/flow.js';
 
 // ---------- tema ----------
 const C = { ink: '#1F3D33', muted: '#5E6B64', hl: '#B5523B', card: '#FBF9F4', border: '#E3DDD0', grid: '#ECE7DC',
@@ -877,16 +865,13 @@ const garrafa = {
 // ---------- CENA 0: Lei de Torricelli (introdução) — m, s; estática, controlada pelos sliders ----------
 const S0 = 16, LOSS0 = 0.95;                  // 16 unidades 3D por metro; o jato para cima perde 5% da altura
 const { g: G0, a: A0 } = sim.q0;              // tanque de raio 0,3 m (Rt abaixo), furo de raio 1 cm
-// Δt do slider: parcela do jato (o jato leva ~0,3 s até o chão) e modo "Por que dt?"
-const DT_FLOW = { label: 'Δt da parcela do jato', min: 0.01, max: 0.3, step: 0.01, value: 0.1, log: false };
-const DT_WHY = { label: 'Δt do intervalo', min: 0.05, max: 20, step: 0.01, value: 10, log: true };
 const fmtLen = m => m < 0.01 ? `${fmt(1000 * m, 2)} mm` : `${fmt(100 * m, 1)} cm`;
 const torricelli = {
   key: '0', tab: 'Torricelli', title: 'Lei de Torricelli', goal: 'De onde vem v = √(2gh)?',
   content: q0, hUnit: 'm', static: true, noGraph: true,
   params: [
     { key: 'h', label: 'Altura h (ponta → nível da água)', unit: 'm', min: 0.2, max: 1, step: 0.01, value: 0.8, d: 2 },
-    { key: 'dt', unit: 's', d: 2, ...DT_FLOW },
+    { key: 'dt', label: 'Δt da parcela do jato', unit: 's', min: 0.01, max: 0.3, step: 0.01, value: 0.1, d: 2 },   // o jato leva ~0,3 s até o chão
   ],
   marks: [],
   makeTanks(p) {
@@ -904,8 +889,7 @@ const torricelli = {
   build() {
     const floorY = -11, standTop = floorY + 0.4 * S0, base = standTop + 0.3, Rt = Math.sqrt(sim.q0.A / Math.PI) * S0, Rg = Rt + 0.15;
     const tankX = -6, top = base + 1.25 * S0, tipY = base + 0.15 * S0, exitY = base + 0.6, xJ = tankX + Rg + 4;
-    Object.assign(this, { base, tipY, tankX, Rg, Rt, xJ, mode: 'up', flow: false, why: false, hlUntil: 0, anim: null, whyT0: 0, cache: {} });
-    if (this.params[1].log) this.setDtRange(DT_FLOW);   // voltou à cena com o modo "Por que dt?" ligado
+    Object.assign(this, { base, tipY, tankX, Rg, Rt, xJ, mode: 'up', flow: false, hlUntil: 0, cache: {} });
     world.add(makeIsland(40, 3, floorY));
     const wood = new THREE.MeshStandardMaterial({ color: C.table, roughness: 0.7, envMapIntensity: 0.35 });
     const stand = new THREE.Mesh(new RoundedBoxGeometry(2 * Rt + 2, standTop - floorY, 2 * Rt + 2, 6, 0.8), wood);
@@ -979,25 +963,13 @@ const torricelli = {
       { el: this.lvlLbl, pos: this.pos.lvl }, { el: this.cotaLbl, pos: this.pos.cota }, { el: this.vLbl, pos: this.pos.v },
       { el: this.aLbl, pos: this.pos.a }, { el: this.dvLbl, pos: this.pos.dv }, { el: this.dhLbl, pos: this.pos.dh },
     ];
-    // quadro da vazão (canto do palco): etiquetas, equação e, no modo "Por que dt?", as barras
+    // quadro da vazão (canto do palco): etiquetas e equação
     this.card = document.createElement('div'); this.card.id = 'flowCard'; this.card.className = 'hide';
     this.card.innerHTML = `
       <div class="fc-flow">
         <div class="fc-row"><i class="sw"></i><span>água que saiu em Δt: <b>ΔV = a·v·Δt = <span data-k="dv"></span> L</b></span></div>
         <div class="fc-row"><i class="sw slab"></i><span>água que sumiu do tanque: <b>A·Δh = <span data-k="adh"></span> L</b></span></div>
         <div class="fc-eq"></div>
-      </div>
-      <div class="fc-why">
-        <div class="fc-ttl">Por que dt? <span data-k="prog"></span></div>
-        <div class="fc-v">v no começo <b data-k="v0"></b> · v no fim <b data-k="v1"></b></div>
-        <div class="fc-bars">
-          <div class="fc-bar"><div class="fc-col"><div class="fc-fill naive"><div class="fc-over"></div></div></div>
-            <b data-k="naive"></b><span>a·v₀·Δt<br>(v do começo)</span></div>
-          <div class="fc-bar"><div class="fc-col"><div class="fc-fill real"></div></div>
-            <b data-k="real"></b><span>volume que<br>realmente saiu</span></div>
-        </div>
-        <div class="fc-diff">diferença: <b data-k="diff"></b></div>
-        <p>Com Δt pequeno, v quase não muda e as duas contas se igualam. No limite Δt → 0, vira a derivada dV/dt.</p>
       </div>`;
     katex.render(String.raw`A\,\Delta h = a\,v\,\Delta t \;\Rightarrow\; A\,\dfrac{dh}{dt} = -a\sqrt{2gh}`,
       this.card.querySelector('.fc-eq'), { throwOnError: false });
@@ -1006,60 +978,41 @@ const torricelli = {
   },
 
   update(st, dtReal) {
-    const h0 = st.tanks[0].h, up = this.mode === 'up', flow = !up && this.flow, why = !up && this.why, now = performance.now();
-    if (this.anim) {   // Δt animado pelos passos 5 e 6 (em escala log quando o slider é log)
-      const k = Math.min((now - this.anim.t0) / this.anim.dur, 1), e = k * k * (3 - 2 * k), { from, to } = this.anim;
-      setParam('dt', +(this.params[1].log ? from * (to / from) ** e : from + (to - from) * e).toFixed(3));
-      if (k >= 1) this.anim = null;
-    }
-    // intervalo [0, Δt] a partir de h0, pelo solver (src/physics/flow.js); recalculado só quando h0 ou Δt mudam
-    const key = `${h0}|${P.dt}`;
-    if (this.cache.key !== key) this.cache = { key, r: interval(sim.q0, h0, P.dt) };
+    const h = st.tanks[0].h, up = this.mode === 'up', flow = !up && this.flow, now = performance.now();
+    // intervalo [0, Δt] a partir de h, pelo solver (src/physics/flow.js); recalculado só quando h ou Δt mudam
+    const key = `${h}|${P.dt}`;
+    if (this.cache.key !== key) this.cache = { key, r: interval(sim.q0, h, P.dt) };
     const r = this.cache.r;
-    // "Por que dt?": o nível desce de verdade durante Δt (3 s de animação, 1,2 s parado no fim, e repete)
-    const k = why ? Math.min(((now - this.whyT0) / 1000 % 4.2) / 3, 1) : 0, tau = k * P.dt;
-    const h = why ? levelAfter(sim.q0, h0, tau, 200) : h0;
-    const v = outflowSpeed(h, G0), level = this.tipY + h * S0, level0 = this.tipY + h0 * S0;
+    const v = outflowSpeed(h, G0), level = this.tipY + h * S0;
     this.liq.scale.y = level - this.base; this.surf.position.y = level;
     // jato lateral com o v exato; o de cima sobe até 0,95·h (atrito)
     this.jetUp.update(dtReal, up ? Math.sqrt(LOSS0) * v * S0 : 0, 900);
     this.jetTint.maxAge = P.dt; this.jetSide.tint = flow ? this.jetTint : null;   // parcela emitida nos últimos Δt
     this.jetSide.update(dtReal, up ? 0 : v * S0, 900);
     this.jTube.visible = up; this.sideHole.visible = !up;
-    this.level.position.y = level0;
+    this.level.position.y = level;
     // cota h
     const len = level - this.tipY, cx = up ? this.xJ + 2.2 : this.tankX - this.Rg - 1.8;
     this.cota.position.set(cx, this.tipY, 0.3);
     this.cShaft.scale.y = Math.max(len - 1.6, 0.01); this.cShaft.position.y = len / 2;
     this.cBot.position.y = 0.45; this.cTop.position.y = len - 0.45; this.cTickBot.position.y = 0; this.cTickTop.position.y = len;
-    // fatia Δh: no topo da água (vazão) ou, no "Por que dt?", entre o nível atual e o do começo (o que já saiu)
-    const MIN = 0.45, thick = flow ? Math.max(r.dh * S0, MIN) : Math.max(level0 - level, 0.02), exag = flow && r.dh * S0 < MIN;
-    this.slab.visible = flow || why; this.slab.position.y = flow ? level : level0; this.slab.scale.y = thick;
-    this.slab.material.opacity = flow ? 0.6 : 0.3;
-    this.dhLbl.style.opacity = this.slab.visible ? 1 : 0;
-    this.dhLbl.textContent = `Δh = ${fmtLen(flow ? r.dh : h0 - h)}${exag ? ' (desenho ampliado)' : ''}`;
+    // fatia Δh no topo da água (desenhada mais grossa quando é fina demais; a etiqueta mostra o valor real)
+    const MIN = 0.45, thick = Math.max(r.dh * S0, MIN), exag = r.dh * S0 < MIN;
+    this.slab.visible = flow; this.slab.position.y = level; this.slab.scale.y = thick;
+    this.dhLbl.style.opacity = flow ? 1 : 0;
+    this.dhLbl.textContent = `Δh = ${fmtLen(r.dh)}${exag ? ' (desenho ampliado)' : ''}`;
     this.aLbl.style.opacity = this.dvLbl.style.opacity = flow ? 1 : 0;
     // quadro
-    this.card.className = flow ? 'flow' : why ? 'why' : 'hide';
+    this.card.className = flow ? 'flow' : 'hide';
     if (flow) { this.k.dv.textContent = fmt(1000 * r.naive, 3); this.k.adh.textContent = fmt(1000 * r.real, 3); }
-    if (why) {
-      const K = this.k;
-      K.prog.textContent = `t = ${fmt(tau, P.dt < 1 ? 2 : 1)} s de ${fmt(P.dt, 2)} s`;
-      K.v0.textContent = `${fmt(r.v0, 2)} m/s`; K.v1.textContent = `${fmt(r.v1, 2)} m/s`;
-      K.naive.textContent = `${fmt(1000 * r.naive, 3)} L`; K.real.textContent = `${fmt(1000 * r.real, 3)} L`;
-      K.diff.textContent = `+${fmt(100 * r.diff, r.diff < 0.01 ? 3 : 2)} %`;
-      this.card.querySelector('.fc-over').style.height = `${100 * (r.naive - r.real) / r.naive}%`;
-      this.card.querySelector('.fc-fill.real').style.height = `${100 * r.real / r.naive}%`;
-    }
     // etiquetas
     const x0 = this.tankX + this.Rg + 0.05, tP = Math.min(P.dt, 0.3);   // ponta da parcela: onde o jato está após Δt
-    this.lvlLbl.textContent = why ? 'nível no começo do Δt' : 'nível da água';
-    this.pos.lvl.set(this.xJ + 3.5, level0 + 0.4, 0);
+    this.pos.lvl.set(this.xJ + 3.5, level + 0.4, 0);
     this.pos.cota.set(cx + (up ? 2.8 : -2.8), this.tipY + len / 2 - 0.6, 1.2);
     this.pos.v.set(up ? this.xJ - 2.2 : x0 + 3, this.tipY + (up ? -1.2 : 4.8), 1);
     this.pos.a.set(x0 - 0.5, this.tipY - 3.4, 1.5);
     this.pos.dv.set(x0 + v * S0 * tP / 2, this.tipY + 1.4, 1.5);
-    this.pos.dh.set(this.tankX + this.Rg + 4, (flow ? level - thick : level) - 1.3, 0);   // abaixo da linha do nível, à direita
+    this.pos.dh.set(this.tankX + this.Rg + 4, level - thick - 1.3, 0);   // abaixo da linha do nível, à direita
     this.cotaLbl.textContent = `h = ${fmt(h, 2)} m`;
     this.vLbl.innerHTML = `${dotHtml(st.tanks[0])}v = ${fmt(v, 2)} m/s`;
     const hot = now < this.hlUntil;
@@ -1067,42 +1020,30 @@ const torricelli = {
     this.level.scale.y = this.level.scale.z = hot ? 2 : 1;
   },
 
-  // ações dos passos: { type: 'scene', mode, flow, why, dt, highlight, animateDt: [de, até], duration }
+  // ações dos passos: { type: 'scene', mode, flow, dt, highlight }
   act(a) {
     if (a.mode) this.setMode(a.mode);
     if (a.flow != null) this.setFlow(a.flow);
-    if (a.why != null) this.setWhy(a.why);
     if (a.dt != null) setParam('dt', a.dt);
     if (a.highlight) this.hlUntil = performance.now() + 6000;
-    if (a.animateDt) this.anim = { from: a.animateDt[0], to: a.animateDt[1], t0: performance.now(), dur: a.duration || 2500 };
   },
   setMode(m) { if (m !== this.mode) { this.mode = m; this.jetUp.clear(); this.jetSide.clear(); } this.syncCtl(); },
-  // vazão e "Por que dt?" usam o furo lateral e não aparecem juntos
-  setFlow(on) { if (on) { this.setWhy(false); this.setMode('side'); } this.flow = on; this.syncCtl(); },
-  setWhy(on) {
-    if (on) { this.flow = false; this.setMode('side'); this.whyT0 = performance.now(); }
-    if (on !== this.why) { this.why = on; this.anim = null; this.setDtRange(on ? DT_WHY : DT_FLOW); }
-    this.syncCtl();
-  },
-  // troca a faixa do slider Δt (parcela do jato: 0,01–0,3 s; "Por que dt?": 0,05–20 s)
-  setDtRange(r) { Object.assign(this.params[1], r); P.dt = r.value; buildSliders(); },
+  setFlow(on) { if (on) this.setMode('side'); this.flow = on; this.syncCtl(); },   // a vazão usa o furo lateral
   buildCtl(el) {
     el.innerHTML = `<div class="seg" data-ctl="mode"><button data-m="up">Jato para cima</button><button data-m="side">Furo lateral</button></div>
-      <button class="pill" data-ctl="flow">Mostrar vazão</button><button class="pill" data-ctl="why">Por que dt?</button>`;
+      <button class="pill" data-ctl="flow">Mostrar vazão</button>`;
     el.querySelector('[data-ctl=mode]').onclick = e => {
       const b = e.target.closest('button'); if (!b) return; b.blur();
-      if (b.dataset.m === 'up') { this.setFlow(false); this.setWhy(false); }
+      if (b.dataset.m === 'up') this.setFlow(false);
       this.setMode(b.dataset.m);
     };
     el.querySelector('[data-ctl=flow]').onclick = e => { e.currentTarget.blur(); this.setFlow(!this.flow); };
-    el.querySelector('[data-ctl=why]').onclick = e => { e.currentTarget.blur(); this.setWhy(!this.why); };
     this.ctl = el; this.syncCtl();
   },
   syncCtl() {
     if (!this.ctl) return;
     this.ctl.querySelectorAll('[data-m]').forEach(b => b.classList.toggle('on', b.dataset.m === this.mode));
     this.ctl.querySelector('[data-ctl=flow]').classList.toggle('on', this.flow);
-    this.ctl.querySelector('[data-ctl=why]').classList.toggle('on', this.why);
   },
 
   formula(st) {
@@ -1807,21 +1748,17 @@ function buildTabs() {
 function paintRange(inp) { inp.style.setProperty('--p', (100 * (inp.value - inp.min) / (inp.max - inp.min)) + '%'); }
 // muda um parâmetro sem recriar a cena (ex.: animar Δt) e atualiza o slider correspondente
 const sliderRefs = {};
-function setParam(key, v) { P[key] = v; const r = sliderRefs[key]; if (r) { r.inp.value = r.toInp(v); r.show(); } }
+function setParam(key, v) { P[key] = v; const r = sliderRefs[key]; if (r) { r.inp.value = v; r.show(); } }
 function buildSliders() {
   const box = $('#sliders'); box.innerHTML = '';
   SC.params.forEach(p => {
-    // p.log: o slider anda em escala logarítmica (0…1000 ↔ min…max)
-    const lg = p.log && [Math.log(p.min), Math.log(p.max)];
-    const toInp = v => lg ? 1000 * (Math.log(v) - lg[0]) / (lg[1] - lg[0]) : v;
-    const fromInp = x => lg ? +Math.exp(lg[0] + x / 1000 * (lg[1] - lg[0])).toFixed(p.d) : +x;
     const w = document.createElement('div'); w.className = 'sl';
     w.innerHTML = `<label>${p.label}<output></output></label>
-      <input type="range" min="${lg ? 0 : p.min}" max="${lg ? 1000 : p.max}" step="${lg ? 1 : p.step}" value="${toInp(P[p.key])}">`;
+      <input type="range" min="${p.min}" max="${p.max}" step="${p.step}" value="${P[p.key]}">`;
     const inp = w.querySelector('input'), out = w.querySelector('output');
     const show = () => { out.textContent = `${fmt(P[p.key], p.d)} ${p.unit}`; paintRange(inp); };
-    inp.oninput = () => { P[p.key] = fromInp(inp.value); show(); reset(); };
-    sliderRefs[p.key] = { inp, show, toInp };
+    inp.oninput = () => { P[p.key] = +inp.value; show(); reset(); };
+    sliderRefs[p.key] = { inp, show };
     show(); box.appendChild(w);
   });
   (SC.paramButtons || []).forEach(pb => {

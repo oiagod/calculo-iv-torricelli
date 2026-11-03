@@ -2,7 +2,7 @@
 // Mesmo formato de scenes/q2.js: enunciado (HTML), nota (opcional) e passos da apresentação.
 // Campo extra por passo: nota (texto pequeno em itálico).
 // Ações desta cena: { type: 'scene', mode: 'up'|'side', flow: true|false (parcela do jato + fatia Δh),
-//                     why: true|false (modo "Por que dt?"), dt: s, highlight: true, animateDt: [de, até], duration: ms }
+//                     dt: s, highlight: true }
 
 export default {
   enunciado: String.raw`
@@ -37,13 +37,13 @@ export default {
       titulo: 'A observação: o jato para cima',
       tex: [String.raw`d_{\text{subida}} \approx h`],
       texto: 'Com um tubo curvado para cima na saída do tanque, como numa fonte, o jato sobe quase até o nível da água dentro do tanque. Fica um pouco abaixo por causa do atrito com o ar e com a própria água.',
-      action: { type: 'scene', mode: 'up', flow: false, why: false, highlight: true },
+      action: { type: 'scene', mode: 'up', flow: false, highlight: true },
     },
     {
       titulo: 'A conclusão: juntando 2 e 3',
       tex: [String.raw`\dfrac{v^2}{2g} = h \;\Rightarrow\; \boxed{\,v = \sqrt{2gh}\,}`, String.raw`v \propto \sqrt{h}`],
       texto: 'Se o jato sobe até a superfície, ele saiu do furo com a velocidade de algo que caiu da superfície até o furo. A velocidade depende só da altura da coluna de água acima do furo, não do formato do tanque nem da quantidade de água.',
-      action: { type: 'scene', mode: 'side', flow: false, why: false },
+      action: { type: 'scene', mode: 'side', flow: false },
     },
     {
       titulo: 'Da velocidade para a vazão: o que sai = o que some',
@@ -58,19 +58,18 @@ export default {
     {
       titulo: 'Por que dt, e não t',
       tex: [
-        String.raw`v = \sqrt{2gh}\ \text{ muda porque } h \text{ cai}`,
-        String.raw`\Delta V \approx a\,v_0\,\Delta t \;\xrightarrow{\;\Delta t \to 0\;}\; \dfrac{dV}{dt} = -a\,v`,
+        String.raw`\Delta V \approx a\,v_0\,\Delta t \;\Rightarrow\; \dfrac{\Delta V}{\Delta t} \approx a\,v_0`,
+        String.raw`\lim_{\Delta t \to 0} \dfrac{\Delta V}{\Delta t} = \dfrac{dV}{dt} = a\,v`,
       ],
-      texto: 'A conta a·v·Δt supõe v constante. Mas v depende de h, e h desce enquanto a água sai: com v do começo, a conta superestima o volume. Diminuindo Δt, v quase não muda dentro do intervalo e a diferença some. No limite, a conta vira exata: é a derivada.',
-      action: { type: 'scene', mode: 'side', why: true, animateDt: [20, 0.05], duration: 6000 },
+      texto: 'A conta a·v·Δt funciona como “velocidade × tempo” e só é exata se a velocidade não mudar. Mas a água vai freando: o nível desce e v = √(2gh) diminui. Por isso, usar o v do começo do intervalo superestima o volume, e o erro é maior quanto maior o Δt. Dividindo por Δt, temos a vazão média no intervalo. Com Δt → 0, ela vira a vazão naquele instante, assim como a velocidade média vira a velocidade instantânea do velocímetro.',
     },
     {
       titulo: 'A Lei de Torricelli',
       tex: [
         String.raw`\dfrac{dV}{dt} = -a\,v = -a\sqrt{2gh}`,
-        String.raw`v = \sqrt{2gd}\ (\text{queda livre}) \;\to\; \text{jato sobe até } h \;\to\; v = \sqrt{2gh} \;\to\; \dfrac{dV}{dt} = -a\sqrt{2gh}`,
+        String.raw`v = \sqrt{2gd}\ (\text{queda livre}) \;\to\; \text{jato sobe até } h\ (\text{experimento}) \;\to\; v = \sqrt{2gh} \;\to\; \dfrac{dV}{dt} = -a\sqrt{2gh}`,
       ],
-      texto: 'O volume sai do tanque, então entra com sinal negativo. Como v depende de h, a lei é uma derivada; para achar o tempo total, integramos, somando todos esses pedacinhos, cada um com a sua velocidade.',
+      texto: 'O volume sai do tanque, então dV/dt é negativa. A lei dá o ritmo em cada instante, e esse ritmo muda com o nível. Para o volume ou o tempo total, somamos os pedacinhos de tempo, cada um com a sua velocidade: essa soma é a integral.',
     },
   ],
 };
