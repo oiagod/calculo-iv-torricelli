@@ -50,7 +50,7 @@ describe('reprodução no app (quadros de 16 ms em ×100)', () => {
   });
 
   it('Q2: a marca de 3 cm é cruzada no mesmo instante da fórmula fechada', () => {
-    for (const k of [-0.0444, -0.0370]) {
+    for (const k of [sim.Q2_K_WATER, sim.Q2_K_OIL]) {
       const { tank } = play(sim.q2(k), { marks: [3] });
       near(tank.cross[3], analytic.q2.timeBetween(10, 3, k), 0.01, `k = ${k}`);
     }

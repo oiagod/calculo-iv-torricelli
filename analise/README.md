@@ -9,9 +9,9 @@ $$\frac{dh}{dt} = k\sqrt{h} \quad\Rightarrow\quad h(t) = \left(\sqrt{h_0} + \tfr
 
 | | 10 → 3 cm | k (dois pontos) | k (mínimos quadrados) | R² de √h × t |
 |---|---|---|---|---|
-| Livro (questão 2a) | 68 s | −0,0421 | — | — |
-| Água | 64,4 s | −0,0444 | −0,0445 | 1,0000 |
-| Óleo | 77,3 s | −0,0370 | −0,0373 | 0,9998 |
+| Livro (questão 2a) | 68 s | −0,042 | — | — |
+| Água | 64,4 s | −0,044 | −0,044 | 1,0000 |
+| Óleo | 77,3 s | −0,037 | −0,037 | 0,9998 |
 
 `h` em cm e `t` em s. A água repete o valor do livro; o óleo, na mesma garrafa
 com o mesmo furo, tem |k| cerca de 17% menor e esvazia mais devagar.

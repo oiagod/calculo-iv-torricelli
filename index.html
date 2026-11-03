@@ -225,6 +225,15 @@
     text-shadow:0 0 4px #fff,0 0 8px #fff}
   .tag3d.py.eq{background:var(--card);border-color:var(--hl);color:var(--hl);text-shadow:none}
   .step .snote{font-size:.85rem;font-style:italic;margin-top:.2rem}
+  .step .shtml{font-size:clamp(1.05rem, 2.9cqi, 1.6rem);color:var(--muted);line-height:1.4}
+  .step .shtml ul{margin:.35rem 0 0;padding-left:1.2rem} .step .shtml li + li{margin-top:.3rem}
+  .step .shtml table{border-collapse:collapse;margin:.5rem 0 .2rem;font-variant-numeric:tabular-nums}
+  .step .shtml th, .step .shtml td{padding:.25rem .8rem;text-align:center;border-bottom:1px solid var(--border)}
+  .step .shtml th:first-child, .step .shtml td:first-child{text-align:left;padding-left:0}
+  .step .shtml th{color:var(--ink);font-weight:700}
+  .step .sbtn{margin-top:.7rem}
+  .step.result .shtml{color:#d9e3dc;font-weight:500}
+  .step.result .sbtn{background:var(--bg);color:var(--ink);border-color:var(--bg)}
   #side.fade > *{opacity:0}
   .sec-label{font-size:.95rem;font-weight:600;color:var(--muted);letter-spacing:.02em;margin:0 0 .5rem;display:flex;align-items:center;gap:.6rem}
   h1{font-family:var(--serif);font-weight:700;font-size:clamp(1.85rem, 5.4cqi, 3.2rem);line-height:1.15;margin:0}
@@ -340,7 +349,7 @@
   </div>
   <div id="bigGraph" class="float hide">
     <div class="bg-head"><span class="ttl" id="graphNameBig">Gráfico h × t</span>
-      <div class="seg small graphStage"><button data-s="1" class="on">1 Modelos</button><button data-s="2">2 Modelos × medições</button><button data-s="3">3 Taxa dh/dt</button></div>
+      <div class="seg small graphStage"><button data-s="1" class="on">1 Modelos</button><button data-s="2">2 Modelos × medições</button></div>
       <button class="mini" id="btnBigClose" title="Fechar (G ou Esc)">✕ Fechar</button></div>
     <div class="graphCap"></div>
     <div id="bigWrap"><canvas id="graphBig"></canvas></div>
@@ -375,7 +384,7 @@
   <section data-sec="leituras"><div class="sec-label tg">Leituras</div><div id="cards"></div></section>
   <section id="graphBox">
     <div class="sec-label"><span id="graphName">Gráfico h × t</span>
-      <div class="seg small graphStage"><button data-s="1" class="on">1 Modelos</button><button data-s="2">2 Modelos × medições</button><button data-s="3">3 Taxa dh/dt</button></div>
+      <div class="seg small graphStage"><button data-s="1" class="on">1 Modelos</button><button data-s="2">2 Modelos × medições</button></div>
       <button class="mini" id="btnBig" title="Ampliar sobre o palco (G)">⤢ Ampliar</button>
     </div>
     <div class="graphCap"></div>
@@ -424,7 +433,6 @@ import q3 from './scenes/q3.js';
 import q4 from './scenes/q4.js';
 // física (funções puras, testadas em tests/physics.test.js)
 import { outflowSpeed, volumeRate } from './src/physics/torricelli.js';
-import * as models from './src/physics/models.js';
 import * as analytic from './src/physics/analytic.js';
 import * as sim from './src/physics/simulations.js';
 import { timeline, advanceRun } from './src/physics/playback.js';
@@ -605,7 +613,7 @@ const dotHtml = tk => `<span class="dot" style="background:${tk.color};box-shado
 // legenda em caixa no canto superior direito do gráfico
 function drawLegend(g, rows, { fs, W, Rp, Tp }) {
   g.font = `600 ${fs}px Inter, system-ui, sans-serif`;
-  const sw = fs * 2.2, lh = fs * 1.55, txt = r => r.k != null ? `${r.name}   k = ${fmt(r.k, 4)}` : r.name;
+  const sw = fs * 2.2, lh = fs * 1.55, txt = r => r.k != null ? `${r.name}   k = ${fmt(r.k, 3)}` : r.name;
   const bw = Math.max(...rows.map(r => g.measureText(txt(r)).width)) + sw + fs * 1.6, bh = rows.length * lh + fs * 0.6;
   const bx = W - Rp - bw - 6, by = Tp + 6;
   g.fillStyle = 'rgba(255,255,255,.94)'; g.strokeStyle = C.border; g.lineWidth = 1;
@@ -621,7 +629,7 @@ function drawLegend(g, rows, { fs, W, Rp, Tp }) {
   });
 }
 
-const D1 = 9.39, R1 = D1 / 2, AREA1 = Math.PI * R1 * R1;
+const D1 = 9.39, R1 = D1 / 2;
 // livro (questão 2a): √h = √10 + (k/2)·t passando por h(68) = 3  ⇒  k = 2(√3 − √10)/68
 const K_BOOK = analytic.q2.K_BOOK;
 const INK1 = { book: '#173D33', water: '#3E8E84', oil: '#C98A1A' };
@@ -629,72 +637,29 @@ const garrafa = {
   key: '2', tab: 'Garrafa', title: 'Questão 2 — Garrafa: água × óleo', goal: 'Quem esvazia primeiro: água ou óleo?', intro: true,
   content: q2,
   hUnit: 'cm',
-  params: [
-    { key: 'h0', label: 'Altura inicial h₀', unit: 'cm', min: 3, max: 14, step: 0.5, value: 10, d: 1 },
-    { key: 'kA', label: 'k da água', unit: 'cm½/s', min: -0.08, max: -0.01, step: 0.0001, value: -0.0444, d: 4 },
-    { key: 'kO', label: 'k do óleo', unit: 'cm½/s', min: -0.08, max: -0.01, step: 0.0001, value: -0.0370, d: 4 },
-  ],
+  params: [],   // h₀ = 10 cm e os k são fixos: foram medidos
   marks: [3],
-  makeTanks(p) {
-    const mk = (name, cls, color, ink, k) => ({ name, cls, color, ink, k, ...sim.q2(k, p.h0),
-      flow: h => -AREA1 * models.q2(k)(h) });                           // cm³/s = mL/s
-    return [mk('Água', 'w', C.water, INK1.water, p.kA), mk('Óleo', 'o', C.oil, INK1.oil, p.kO)];
+  makeTanks() {
+    const mk = (name, cls, color, ink, k) => ({ name, cls, color, ink, k, ...sim.q2(k, 10) });
+    return [mk('Água', 'w', C.water, INK1.water, sim.Q2_K_WATER), mk('Óleo', 'o', C.oil, INK1.oil, sim.Q2_K_OIL)];
   },
   cards: [
     { label: 'h atual', unit: 'cm', val: tk => fmt(Math.max(tk.h, 0), 2) },
-    { label: 'Vazão', unit: 'mL/s', val: tk => fmt(tk.flow(tk.h), 2) },
-    { label: 'Esvazia em', duration: true, secs: tk => tk.tl.tEmpty,
-      mark: tk => tk.emptyAt != null ? ' ✓' : '' },
-    { label: 'Constante k', unit: 'cm½/s', val: tk => fmt(tk.k, 4) },
+    { label: 'Tempo até 3 cm', unit: 's', val: tk => tk.cross[3] != null ? fmt(tk.cross[3], 1) : '—' },
   ],
   measured: (() => {
     const marks = [10, 9, 8, 7, 6, 5, 4, 3, 2];
     const ag = [0, 7.5, 15.3, 23.5, 32.3, 41.9, 52.3, 64.4, 78.7];
-    const ol = [0, 8.6, 18.0, 27.9, 38.5, 49.9, 62.4, 77.4, 95.2];
+    const ol = [0, 8.6, 18.0, 27.9, 38.5, 49.9, 62.4, 77.3, 95.2];
     return [marks.map((m, i) => [ag[i], m]), marks.map((m, i) => [ol[i], m])];
   })(),
   // câmera ~25° acima da horizontal
   camera: { dist: 128, elev: 25, target: [0, -2, 0] },
-  stages: 3,
-  stageName: n => n === 3 ? 'Taxa de variação dh/dt × h' : 'Gráfico h × t',
-  caption: n => n === 3 ? { title: 'Quanto mais alto o nível, mais rápido ele cai', tex: '\\dfrac{dh}{dt} = k\\sqrt{h}' } : null,
-  // etapa 3: cheio (h = 10) à direita e vazio à esquerda, então o ponto anda para a esquerda ao esvaziar
-  axes: n => n === 3
-    ? { x: { from: 0, to: 10, step: 1 }, y: { from: -1.6, to: 0, step: 0.2 }, xLabel: 'h (cm)', yLabel: 'dh/dt (mm/s)' }
-    : { x: { from: 0, to: 175, step: 25 }, y: { from: 0, to: 10.5, step: 2 }, xLabel: 't (s)', yLabel: 'h (cm)' },
-
-  // etapa 3: dh/dt = k√h (em mm/s) em função de h, com a posição atual de cada tanque
-  plotRate(g, { px, py, fs, W, Rp, Tp }) {
-    const [ag, ol] = st.tanks, dotted = [0.1, fs * 0.45];
-    const curve = (k, color, dash) => {
-      g.save(); g.strokeStyle = color; g.lineWidth = Math.max(2.5, fs * 0.2); g.setLineDash(dash);
-      g.lineCap = 'round'; g.lineJoin = 'round'; g.beginPath();
-      for (let i = 0; i <= 200; i++) { const h = 10 * i / 200, r = 10 * k * Math.sqrt(h); i ? g.lineTo(px(h), py(r)) : g.moveTo(px(h), py(r)); }
-      g.stroke(); g.restore();
-    };
-    curve(ag.k, INK1.water, []); curve(ol.k, INK1.oil, []); curve(K_BOOK, INK1.book, dotted);
-    g.font = `700 ${fs}px Inter, system-ui, sans-serif`;
-    st.tanks.forEach((tk, i) => {
-      const h = Math.max(tk.h, 0), r = 10 * tk.f(h), x = px(h), y = py(r);
-      g.beginPath(); g.arc(x, y, fs * 0.42, 0, 7); g.fillStyle = tk.color; g.fill();
-      g.lineWidth = 2.5; g.strokeStyle = tk.ink; g.stroke();
-      // rótulo: água abaixo da curva, óleo acima; à esquerda do ponto, ou à direita perto do eixo
-      const txt = `${fmt(r, 2).replace('-', '−')} mm/s`, tw = g.measureText(txt).width;
-      const left = x - fs * 0.8 - tw > px(0) + 4, lx = left ? x - fs * 0.8 - tw : x + fs * 0.8;
-      const ly = y + (i === 0 ? fs * 1.1 : -fs * 1.1);
-      g.fillStyle = 'rgba(255,255,255,.92)'; g.beginPath(); g.roundRect(lx - 5, ly - fs * 0.7, tw + 10, fs * 1.4, 7); g.fill();
-      g.fillStyle = tk.ink; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText(txt, lx, ly);
-    });
-    drawLegend(g, [
-      { name: 'Livro (questão 2a)', k: K_BOOK, c: INK1.book, dash: dotted, a: 1 },
-      { name: 'Água (nosso ensaio)', k: ag.k, c: INK1.water, dash: [], a: 1 },
-      { name: 'Óleo (nosso ensaio)', k: ol.k, c: INK1.oil, dash: [], a: 1 },
-    ], { fs, W, Rp, Tp });
-  },
+  stages: 2,
+  axes: { x: { from: 0, to: 175, step: 25 }, y: { from: 0, to: 10.5, step: 2 }, xLabel: 't (s)', yLabel: 'h (cm)' },
 
   // gráfico h × t: três curvas do modelo h(t) = (√h0 + (k/2)·t)² e, na etapa 2, as medições
   plot(g, o) {
-    if (st.stage === 3) return this.plotRate(g, o);
     const { px, py, fs, W, Rp, Tp } = o;
     const stage2 = st.stage === 2, el = performance.now() - st.stageAt, [ag, ol] = st.tanks;
     const curve = (k, h0, color, dash, alpha) => {
@@ -833,16 +798,8 @@ const garrafa = {
   },
   resetVisuals() { this.objs?.forEach(o => o.jet.clear()); },
 
-  formula(st) {
-    const tt = tx(st.t, 1);
-    const L = [{ tex: `\\dfrac{dh}{dt} = k\\sqrt{h}\\;\\;\\Rightarrow\\;\\; \\sqrt{h} = \\sqrt{h_0} + \\tfrac{k}{2}\\,t`, main: true }];
-    st.tanks.forEach(tk => {
-      const h = Math.max(tk.h, 0);
-      L.push({ head: tk,
-        tex: `\\sqrt{h} = \\sqrt{${tx(tk.h0, 1)}} - ${tx(Math.abs(tk.k) / 2, 4)}\\cdot ${HL(tt)} = ${HL(tx(Math.sqrt(h), 3))}` });
-      L.push({ tex: `\\dfrac{dh}{dt} = ${tx(tk.k, 4)}\\sqrt{${HL(tx(h, 2))}} = ${HL(tx(tk.f(h), 3))}` });
-    });
-    return L;
+  formula() {
+    return [{ tex: `\\dfrac{dh}{dt} = k\\sqrt{h}\\;\\;\\Rightarrow\\;\\; h(t) = \\left(\\sqrt{10} + \\tfrac{k}{2}\\,t\\right)^{2}`, main: true }];
   },
 
   ui(st) {
@@ -851,11 +808,11 @@ const garrafa = {
     if (st.firstEmpty) {
       const w = st.firstEmpty;
       b.innerHTML = `<span class="ttl"><span class="${w.cls}">${w.name}</span> esvaziou primeiro!</span> <span class="sm">${fmt(w.emptyAt, 1)} s</span>
-        <span class="vs">·</span> placar a 3 cm: <span class="w">${fmt(64.4, 1)} s</span> <span class="vs">×</span> <span class="o">${fmt(77.4, 1)} s</span>`;
+        <span class="vs">·</span> placar a 3 cm: <span class="w">${fmt(64.4, 1)} s</span> <span class="vs">×</span> <span class="o">${fmt(77.3, 1)} s</span>`;
       b.classList.remove('hide');
     } else if (ca != null || co != null) {
       b.innerHTML = `<span class="ttl">Placar a 3 cm</span> <span class="w">Água ${ca != null ? fmt(64.4, 1) + ' s' : '…'}</span>
-        <span class="vs">×</span> <span class="o">Óleo ${co != null ? fmt(77.4, 1) + ' s' : '…'}</span>
+        <span class="vs">×</span> <span class="o">Óleo ${co != null ? fmt(77.3, 1) + ' s' : '…'}</span>
         <span class="sm">medido · modelo: ${ca != null ? fmt(ca, 1) : '…'} × ${co != null ? fmt(co, 1) : '…'} s</span>`;
       b.classList.remove('hide');
     } else b.classList.add('hide');
@@ -2028,7 +1985,7 @@ function renderContent(sc) {
   $('#steps').innerHTML = passos.length ? passos.map((p, i) => {
     const last = i === passos.length - 1;
     return `<article class="step${last ? ' result' : ''}"><div class="sn">${last ? 'Resultado' : 'Passo ' + (i + 1)}</div>
-      <h4>${p.titulo}</h4>${(p.tex || []).map(() => '<div class="tx"></div>').join('')}${p.texto ? `<p>${p.texto}</p>` : ''}${p.nota ? `<p class="snote">${p.nota}</p>` : ''}</article>`;
+      <h4>${p.titulo}</h4>${p.intro ? `<p>${p.intro}</p>` : ''}${(p.tex || []).map(() => '<div class="tx"></div>').join('')}${p.texto ? `<p>${p.texto}</p>` : ''}${p.html ? `<div class="shtml">${mathHtml(p.html)}</div>` : ''}${p.nota ? `<p class="snote">${p.nota}</p>` : ''}${p.botao ? `<button class="pill sbtn" data-i="${i}">${p.botao.label}</button>` : ''}</article>`;
   }).join('') : '<p class="wipTxt">Apresentação em construção.</p>';
   $('#steps').querySelectorAll('.step').forEach((el, i) =>
     el.querySelectorAll('.tx').forEach((t, j) => katex.render(passos[i].tex[j], t, { throwOnError: false, displayMode: false })));
@@ -2246,6 +2203,9 @@ new ResizeObserver(() => { refitFormulas(); fitSteps(); }).observe($('#side'));
 
 $('#sideTabs').onclick = e => { const b = e.target.closest('button'); if (b) { b.blur(); setSideTab(b.dataset.t); } };
 $('#btnNext').onclick = e => { e.currentTarget.blur(); nextStep(); };
+$('#steps').onclick = e => {   // botão dentro de um passo (ex.: "Ver no gráfico")
+  const b = e.target.closest('.sbtn'); if (!b) return; b.blur(); runAction(SC.content.passos[+b.dataset.i].botao.action);
+};
 $('#btnPrev').onclick = e => { e.currentTarget.blur(); prevStep(); };
 
 $('#paneSlides').onclick = e => {

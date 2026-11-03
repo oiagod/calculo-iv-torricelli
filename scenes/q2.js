@@ -1,9 +1,9 @@
 // Questão 2 — Garrafa: água × óleo
 // Texto do enunciado (HTML) e passos da apresentação. Fórmulas em LaTeX (KaTeX).
 // No enunciado (e na nota), fórmulas entre $…$ (no meio do texto) ou $$…$$ (em destaque).
-// Cada passo: { titulo, tex: [até 3 linhas], texto (opcional, 1 frase), action (opcional) }
+// Cada passo: { titulo, intro, tex: [até 3 linhas], texto, html, nota, botao: { label, action }, action } (todos opcionais menos o título)
 // Ações disponíveis:
-//   { type: 'graphStage', stage: 1|2|3 }   abre o gráfico ampliado na etapa indicada
+//   { type: 'graphStage', stage: 1|2 }     abre o gráfico ampliado na etapa indicada
 //   { type: 'seek', t: 68 }                pula a simulação para o tempo t (s)
 //   { type: 'highlight', target: 'furo' }  destaca algo na cena 3D (se a cena suportar)
 // O último passo é sempre exibido como o resultado (cartão em destaque).
@@ -82,46 +82,72 @@ export default {
     ],
   },
 
+  // Passos: intro (texto antes das fórmulas), tex, texto, html (listas e tabelas), nota e botao { label, action }.
+  // Nenhum passo roda ação sozinho; o último tem o botão "Ver no gráfico".
   passos: [
     {
-      titulo: 'Modelo',
+      titulo: 'O modelo',
+      intro: 'O enunciado troca a Lei de Torricelli por dh/dt = k√h, em que o k depende do líquido e é determinado pelos dados do vazamento.',
       tex: [String.raw`\dfrac{dh}{dt} = k\sqrt{h}`],
-      texto: 'A velocidade de descida depende só da altura h acima do furo; k vem dos dados.',
     },
     {
-      titulo: 'Separar e integrar',
-      tex: [String.raw`\int h^{-1/2}\,dh = k\int dt`, String.raw`\Longrightarrow\quad 2\sqrt{h} = kt + C`],
-      texto: 'A equação é separável: h de um lado, t do outro.',
-    },
-    {
-      titulo: 'Condição inicial h(0) = 10',
-      tex: [String.raw`C = 2\sqrt{10}`, String.raw`\Longrightarrow\quad \sqrt{h} = \sqrt{10} + \tfrac{k}{2}\,t`],
-    },
-    {
-      titulo: 'Dado h(68) = 3',
-      tex: [String.raw`\sqrt{3} = \sqrt{10} + 34k`, String.raw`k = \dfrac{\sqrt{3}-\sqrt{10}}{34} \approx -0{,}0421`],
-    },
-    {
-      titulo: 'Resultado do livro',
+      titulo: 'A solução',
+      intro: 'Separando as variáveis e integrando, com h(0) = 10 cm:',
       tex: [
-        String.raw`h(t) = \left(\sqrt{10} - \dfrac{\sqrt{10}-\sqrt{3}}{68}\,t\right)^{2}`,
-        String.raw`\begin{array}{c|cccccc} t\ (\text{s}) & 10 & 20 & 30 & 40 & 50 & 60 \\ \hline h\ (\text{cm}) & 8{,}71 & 7{,}52 & 6{,}41 & 5{,}39 & 4{,}45 & 3{,}61 \end{array}`,
+        String.raw`\int h^{-1/2}\,dh = k\int dt \;\Rightarrow\; 2\sqrt{h} = kt + C`,
+        String.raw`h(0) = 10 \;\Rightarrow\; C = 2\sqrt{10}`,
+        String.raw`\boxed{\,h(t) = \left(\sqrt{10} + \tfrac{k}{2}\,t\right)^{2}\,}`,
       ],
     },
     {
-      titulo: 'Nosso ensaio',
+      titulo: 'Como achar o k',
+      intro: 'Basta saber em quanto tempo T o nível chegou a 3 cm. Substituímos h(T) = 3 na solução e isolamos o k:',
       tex: [
-        String.raw`k = \dfrac{2\,(\sqrt{3}-\sqrt{10})}{t_{10\to 3}}`,
-        String.raw`\text{água: } t = 64{,}4\ \text{s} \;\Rightarrow\; k \approx -0{,}0444`,
-        String.raw`\text{óleo: } t = 77{,}4\ \text{s} \;\Rightarrow\; k \approx -0{,}0370`,
+        String.raw`3 = \left(\sqrt{10} + \tfrac{k}{2}\,T\right)^{2} \;\Rightarrow\; \sqrt{3} = \sqrt{10} + \tfrac{k}{2}\,T`,
+        String.raw`\Rightarrow\; k = \dfrac{2\,(\sqrt{3} - \sqrt{10})}{T}`,
       ],
-      texto: 'Mesma conta, trocando 68 s pelos tempos medidos no vídeo de 10 cm até 3 cm.',
+      nota: 'Tirar a raiz vale porque o parêntese é positivo enquanto o tanque não esvaziou.',
     },
     {
-      titulo: 'Experimento validado',
-      tex: [String.raw`k_{\text{água}} \approx k_{\text{livro}} \qquad |k_{\text{óleo}}| \approx 0{,}83\,|k_{\text{água}}|`],
-      texto: 'Água ≈ livro → experimento validado. Óleo: |k| ~17% menor → esvazia mais devagar.',
-      action: { type: 'graphStage', stage: 2 },
+      titulo: 'Livro (questão 2a)',
+      intro: 'O enunciado informa: de 10 cm a 3 cm em 68 s.',
+      tex: [
+        String.raw`T = 68\ \text{s} \;\Rightarrow\; k = \dfrac{\sqrt{3} - \sqrt{10}}{34} \approx -0{,}042`,
+        String.raw`h(t) = \left(\sqrt{10} - 0{,}0210\,t\right)^{2}`,
+      ],
+      html: String.raw`<table>
+          <tr><th>t (s)</th><td>10</td><td>20</td><td>30</td><td>40</td><td>50</td><td>60</td></tr>
+          <tr><th>h (cm)</th><td>8,71</td><td>7,52</td><td>6,41</td><td>5,39</td><td>4,45</td><td>3,61</td></tr>
+        </table>`,
+    },
+    {
+      titulo: 'Como medimos (nosso ensaio, questão 2b)',
+      html: String.raw`<ul>
+          <li>garrafa PET com um furo perto do fundo;</li>
+          <li>fita com marcas a cada centímetro, com o zero no topo do furo;</li>
+          <li>celular parado filmando, com água e depois com óleo de cozinha;</li>
+          <li>um script em Python lê o nível em cada quadro do vídeo, usando as marcas da fita como régua;</li>
+          <li>registramos o instante em que o nível cruza cada marca: são os círculos do gráfico.</li>
+        </ul>`,
+    },
+    {
+      titulo: 'Resultados',
+      html: String.raw`<table>
+          <tr><th></th><th>T (10 → 3 cm)</th><th>k</th></tr>
+          <tr><td>Livro</td><td>68 s</td><td>−0,042</td></tr>
+          <tr><td>Água</td><td>64,4 s</td><td>−0,044</td></tr>
+          <tr><td>Óleo</td><td>77,3 s</td><td>−0,037</td></tr>
+        </table>
+        <p>Cada k sai da mesma conta do passo 3, trocando só o T.</p>`,
+    },
+    {
+      titulo: 'Comparação',
+      html: String.raw`<ul>
+          <li>Livro × água: garrafa e furo diferentes, e o k ficou a 5% do valor do livro. O nosso ensaio reproduz o do livro.</li>
+          <li>Água × óleo: com o mesmo procedimento, o |k| do óleo ficou ~17% menor, e ele leva ~20% mais tempo. A Lei de Torricelli pura não tem nenhum termo do líquido; a diferença aponta para a viscosidade, e por isso o k é medido para cada líquido.</li>
+          <li>Cada k usou só dois pontos (10 cm e 3 cm). Os demais pontos medidos caem sobre a curva: o modelo descreve bem os dados.</li>
+        </ul>`,
+      botao: { label: 'Ver no gráfico', action: { type: 'graphStage', stage: 2 } },
     },
   ],
 };
