@@ -38,10 +38,10 @@ export default {
         titulo: 'O que vimos',
         html: String.raw`<p class="sub">t contado desde os 10 cm</p>
           <ul class="tl">
-            <li><b>até ~115 s</b>: escoando pela parede;</li>
-            <li><b>~115 a 212 s</b>: um filete fino ainda escorre, com o nível quase parado na altura do furo;</li>
-            <li><b>~212 a 214 s</b>: o filete se rompe e sai a última gota;</li>
-            <li><b>a partir de ~214 s</b>: não sai mais nada.</li>
+            <li><b>até ~1 min 55 s</b>: escoando pela parede;</li>
+            <li><b>~1 min 55 s a 3 min 32 s</b>: um filete fino ainda escorre, com o nível quase parado na altura do furo;</li>
+            <li><b>~3 min 32 s a 3 min 34 s</b>: o filete se rompe e sai a última gota;</li>
+            <li><b>a partir de ~3 min 34 s</b>: não sai mais nada.</li>
           </ul>`,
       },
       {
