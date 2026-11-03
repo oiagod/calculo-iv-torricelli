@@ -200,6 +200,7 @@
   #parouCards .katex-display{margin:.5rem 0;font-size:clamp(1.05rem, 3cqi, 1.6rem);overflow-x:auto;overflow-y:hidden;color:var(--ink)}
   .pfilm{margin-top:.7rem} .pfilm svg{display:block;width:100%;height:auto;font-family:inherit}
   #parouCards .pfilm .fnote{margin:.4rem 0 0;font-size:1rem;color:var(--ink);font-weight:600}
+  #parouCards ul.ex{margin:.5rem 0 0;padding-left:1.2rem} #parouCards ul.ex li{font-size:.95rem}
   .stepNav .count{margin:0 auto;color:var(--muted);font-weight:600;font-variant-numeric:tabular-nums}
   .pill.dark{background:var(--ink);color:var(--bg);border-color:var(--ink)}
   .pill:disabled{opacity:.4;cursor:default}
@@ -1876,7 +1877,7 @@ function renderParou(sc) {
   if (!p) { $('#parouCards').innerHTML = ''; return; }
   $('#parouCap').textContent = p.video.caption;
   $('#parouCards').innerHTML = p.cartoes.map((c, i) =>
-    `<article class="step"><div class="sn">${i + 1} de ${p.cartoes.length}</div><h4>${c.titulo}</h4>${mathHtml(c.html)}${c.pelicula ? '<div class="pfilm"></div>' : ''}</article>`).join('');
+    `<article class="step"><div class="sn">${i + 1} de ${p.cartoes.length}</div><h4>${c.titulo}</h4>${mathHtml(c.html)}${c.pelicula ? '<div class="pfilm"></div>' : ''}${c.depois ? mathHtml(c.depois) : ''}</article>`).join('');
   $('#parouCards').querySelectorAll('.pfilm').forEach(filmIllustration);
   parouN = 1; showParou(false);
 }
@@ -1923,7 +1924,7 @@ function filmIllustration(box) {
     <line x1="${wall[1] + 11}" y1="${hole[0] + 7}" x2="250" y2="100" stroke="var(--water-ink)" stroke-width="1.2"/>
     <text x="254" y="104" font-size="12" fill="var(--water-ink)" font-weight="600">película de água</text>
   </svg>
-  <p class="fnote">No momento em que parou: empurra ~20 Pa · a película segura até ~70 Pa (ordem de grandeza)</p>`;
+  <p class="fnote">No momento em que parou: empurra ~20 Pa · a película segura até ~70 Pa (ordem de grandeza).</p>`;
 }
 $('#parouOpen').onclick = e => { e.currentTarget.blur(); const p = SC.content?.parou; if (p) openDeck({ video: p.video }); };
 $('#parouNext').onclick = e => { e.currentTarget.blur(); stepParou(1); };

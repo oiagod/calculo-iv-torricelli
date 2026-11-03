@@ -27,7 +27,7 @@ export default {
   nota: 'Nosso grupo repetiu o ensaio (b) com água e com óleo de cozinha.',
 
   // aba "Por que parou?": o fim do ensaio com água. Cartões revelados um a um (↓ ↑); fórmulas entre $…$ ou $$…$$.
-  // pelicula: true põe no cartão a ilustração da película na boca do furo (empurra × segura).
+  // pelicula: true põe no cartão a ilustração da película na boca do furo (empurra × segura); depois: HTML abaixo dela.
   parou: {
     video: {
       src: './media/agua_furo_para.mp4',
@@ -45,28 +45,47 @@ export default {
           </ul>`,
       },
       {
-        titulo: 'Por que vira um filete',
-        html: String.raw`<p>Com pouca pressão, a água sai devagar demais para formar um jato livre: ela gruda no plástico e
-          escorre pela parede. É o mesmo “efeito bule” do chá que escorre pelo bico.</p>`,
+        titulo: 'O que empurra: o peso da água',
+        html: String.raw`<p>Pressão é força dividida por área. A coluna de água acima do furo tem peso, e esse peso empurra a
+          água para fora.</p>
+          $$P_{\text{empurra}} = \rho\,g\,h$$
+          <p>Com $\rho = 1000$ kg/m³ e $g = 10$ m/s², cada milímetro de água acima do furo empurra com 10 Pa.</p>`,
       },
       {
-        titulo: 'Por que o filete se rompe',
-        html: String.raw`<p>Quando a vazão fica pequena demais, a tensão superficial puxa o filete fino até ele se partir
-          numa gota, como o fio fino de uma torneira que vira gotas.</p>`,
+        titulo: 'O que segura: a “pele” da água',
+        html: String.raw`<p>A superfície da água se comporta como uma película elástica esticada: é por isso que um inseto
+          anda sobre a água e uma gota fica redonda. A força dessa película é a tensão superficial, representada pela letra
+          grega $\gamma$ (gama). Para a água, $\gamma \approx 0{,}072$ N/m: cada metro de borda da película puxa com
+          0,072 N. Para sair pelo furo, a água precisa empurrar essa película para fora, formando uma bolhinha, como encher
+          um balão.</p>`,
       },
       {
-        titulo: 'Por que não sai mais nada',
-        html: String.raw`<p>O que empurra é a coluna de água acima do furo:</p>
-          $$P_{\text{empurra}} = \rho\,g\,h \approx 10\ \text{Pa por milímetro de água}$$
-          <p>O que segura é a película curva na boca do furo (equação de Young-Laplace):</p>
-          $$P_{\text{segura}} \approx \frac{2\gamma}{r}$$
-          <p>Água: $\gamma \approx 0{,}072$ N/m; furo de ~4 mm ($r \approx 2$ mm):</p>
-          $$\frac{2\cdot 0{,}072}{0{,}002} \approx 72\ \text{Pa} \;\approx\; 7\ \text{mm de água}$$
-          <p>Enquanto o filete escorre pela parede, não existe película na boca do furo: a água fica ligada de dentro
-          da garrafa até o filete, e o peso dele ajuda a puxar mais água, como um pequeno sifão. Por isso ela continuou
-          saindo mesmo com poucos milímetros de nível. Quando o filete se rompe, a película se forma, e aí o empurrão não
-          vence mais.</p>`,
+        titulo: 'De onde vem 2γ/r',
+        html: String.raw`<p>Imagine a bolhinha como uma meia-esfera presa na borda do furo, de raio $r$. A película puxa para
+          dentro ao longo da borda (comprimento $2\pi r$). A água empurra para fora sobre a área do furo ($\pi r^2$).
+          Igualando:</p>
+          $$P\cdot\pi r^2 = \gamma\cdot 2\pi r \;\Rightarrow\; P_{\text{segura}} = \frac{2\gamma}{r}$$
+          <p>Furo menor resiste mais, como um balão pequeno, que é mais difícil de encher. Com um furo de ~4 mm
+          ($r \approx 2$ mm):</p>
+          $$P_{\text{segura}} = \frac{2\cdot 0{,}072}{0{,}002} \approx 72\ \text{Pa} \;\approx\; 7\ \text{mm de água}$$`,
+      },
+      {
+        titulo: 'Por que “segura até”',
+        html: String.raw`<p>A película se ajusta ao empurrão: com pouca pressão, ela se curva só um pouco e segura; com mais
+          pressão, ela se curva mais. O máximo é a meia-esfera: se o empurrão passar de ~72 Pa, ela não tem como se curvar
+          mais, estoura, e a água sai. Abaixo disso, ela segura.</p>`,
+      },
+      {
+        titulo: 'O filete e o momento em que parou',
+        html: String.raw`<p>Pela conta, abaixo de ~7 mm de nível a água já deveria parar, mas no vídeo ela continuou saindo.
+          Enquanto o filete escorre pela parede, não existe película na boca do furo: a água fica ligada de dentro da
+          garrafa até o filete, e o peso dele puxa mais água, como um pequeno sifão. Quando o filete fica fino demais e se
+          rompe, a película se forma; com o nível a ~2 mm, o empurrão de ~20 Pa não consegue estourá-la, e a água para.</p>`,
         pelicula: true,
+        depois: String.raw`<ul class="ex">
+            <li>gota pendurada na torneira: só cai quando fica pesada o bastante;</li>
+            <li>conta-gotas: a água não sai pela ponta fina sem apertar.</li>
+          </ul>`,
       },
       {
         titulo: 'Ressalva',
