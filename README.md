@@ -10,16 +10,19 @@ cilindro (Q1), garrafa com água e óleo (Q2), sistema anti-incêndio (Q3) e esf
 O app não tem build: é um `index.html` com as bibliotecas em `vendor/`, e funciona offline.
 
 ```bash
-python3 -m http.server 8000
+python3 serve.py
 ```
 
-Depois abra http://localhost:8000.
+Depois abra http://localhost:8001. O `serve.py` manda o navegador não guardar cópia dos arquivos: com o
+`python3 -m http.server`, depois de editar `src/physics/` ou `scenes/`, a página pode continuar com os módulos
+antigos mesmo com Cmd+Shift+R.
 
 ## Estrutura
 
 | Pasta | Conteúdo |
 |---|---|
 | `index.html` | palco 3D, painel e cenas |
+| `serve.py` | servidor local sem cache |
 | `src/physics/` | física em funções puras: Torricelli, EDO de cada questão, RK4, soluções analíticas e a tabela h(t) que a animação lê |
 | `docs/decisoes.md` | registro das decisões técnicas |
 | `scenes/` | enunciados e passos da apresentação de cada questão |
