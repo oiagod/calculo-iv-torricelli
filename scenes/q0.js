@@ -69,7 +69,6 @@ export default {
         String.raw`\dfrac{dV}{dt} = -a\,v = -a\sqrt{2gh}`,
         String.raw`v = \sqrt{2gd}\ (\text{queda livre}) \;\to\; \text{jato sobe até } h\ (\text{experimento}) \;\to\; v = \sqrt{2gh} \;\to\; \dfrac{dV}{dt} = -a\sqrt{2gh}`,
       ],
-      texto: 'O volume sai do tanque, então dV/dt é negativa. A lei dá o ritmo em cada instante, e esse ritmo muda com o nível. Para o volume ou o tempo total, somamos os pedacinhos de tempo, cada um com a sua velocidade: essa soma é a integral.',
     },
   ],
 };
