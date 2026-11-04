@@ -5,6 +5,8 @@
 Simulador 3D de esvaziamento de tanques para a apresentação de Cálculo IV: Lei de Torricelli,
 cilindro (Q1), garrafa com água e óleo (Q2), sistema anti-incêndio (Q3) e esfera (Q4).
 
+![Questão 2: modelos (livro, água, óleo) e as medições tiradas dos nossos vídeos](docs/simulador.png)
+
 ## Como abrir
 
 O app não tem build: é um `index.html` com as bibliotecas em `vendor/`, e funciona offline.
